@@ -7,23 +7,11 @@ import { useState, useEffect, useRef } from 'react'
 import RockerSwitch from './RockerSwitch'
 import TimePicker from './TimePicker'
 import { useMqttContext } from '../../context/MqttContext'
+import { publishFullConfig } from '../../utils/configBuilder'
 
 const TOPIC = 'home/servo/command'
 
-// Parse "HH:MM AM/PM" → total minutes from midnight
-function parseToMinutes(timeStr) {
-  if (!timeStr) return -1
-  const [time, ampm] = timeStr.trim().split(' ')
-  const [hStr, mStr] = time.split(':')
-  let h = parseInt(hStr, 10)
-  const m = parseInt(mStr, 10)
-  if (ampm === 'AM') {
-    if (h === 12) h = 0
-  } else {
-    if (h !== 12) h += 12
-  }
-  return h * 60 + m
-}
+
 
 function MotorControl() {
   const [motorOn,         setMotorOn]         = useState(false)
@@ -31,8 +19,7 @@ function MotorControl() {
   const [startTime,       setStartTime]       = useState('08:00 AM')
   const { publish, subscribe } = useMqttContext()
 
-  // Track whether we already fired the motor today at this scheduled time
-  const firedRef = useRef(false)
+
 
   // ── Load all state from DB once on mount ──
   useEffect(() => {
@@ -62,37 +49,7 @@ function MotorControl() {
     return unsub
   }, [subscribe])
 
-  // ── Scheduler: check every 30 seconds if it's time to fire ──
-  useEffect(() => {
-    function checkSchedule() {
-      if (!scheduleEnabled || motorOn) return
 
-      const now = new Date()
-      const nowMins = now.getHours() * 60 + now.getMinutes()
-      const targetMins = parseToMinutes(startTime)
-
-      if (nowMins === targetMins) {
-        if (!firedRef.current) {
-          console.log(`[Scheduler] Auto-starting motor at ${startTime}`)
-          firedRef.current = true
-          setMotorOn(true)
-          publish(TOPIC, 'ON')
-          fetch('/api/motor-api', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'status', is_on: true })
-          }).catch(err => console.error('Failed to auto-start motor:', err))
-        }
-      } else {
-        // Reset the fired guard once the minute has passed
-        firedRef.current = false
-      }
-    }
-
-    const interval = setInterval(checkSchedule, 30000)
-    checkSchedule() // also run immediately on mount / state change
-    return () => clearInterval(interval)
-  }, [scheduleEnabled, startTime, motorOn, publish])
 
   // ── Manual switch ──
   function handleMotorChange(isOn) {
@@ -112,18 +69,21 @@ function MotorControl() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'schedule_toggle', schedule_enabled: isEnabled })
-    }).catch(err => console.error('Failed to update schedule toggle:', err))
+    })
+      .then(() => publishFullConfig(publish, { schedule_enabled: isEnabled }))
+      .catch(err => console.error('Failed to update schedule toggle:', err))
   }
 
   // ── Time change ──
   function handleTimeChange(timeStr) {
     setStartTime(timeStr)
-    firedRef.current = false // allow re-fire on new time
     fetch('/api/motor-api', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'schedule', start_time: timeStr })
-    }).catch(err => console.error('Failed to update schedule time:', err))
+    })
+      .then(() => publishFullConfig(publish, { start_time: timeStr }))
+      .catch(err => console.error('Failed to update schedule time:', err))
   }
 
   return (

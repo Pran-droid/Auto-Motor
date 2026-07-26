@@ -22,7 +22,7 @@ import {
 import TapCard from './TapCard'
 import TimerSetterPopup from './TimerSetterPopup'
 import { useMqttContext } from '../../context/MqttContext'
-
+import { publishFullConfig } from '../../utils/configBuilder'
 // Initial tap definitions — the order of this array controls render order
 const INITIAL_TAPS = [
   { id: 'front-tap', label: 'Front', timerClass: 'flip-timer-front', switchId: 'front-tap-switch' },
@@ -106,22 +106,7 @@ function TapControl() {
             }
             
             // Push the loaded config directly to MQTT so ESP32 has it before sequence starts
-            const pinMap = { 'front-tap': 7, 'back-tap': 8, 'down-tap': 11 }
-            const cfgParts = currentOrder.map(t => {
-              let ms = 900000
-              if (t.id === 'front-tap') ms = data.front_timer || 900000
-              else if (t.id === 'back-tap') ms = data.back_timer || 900000
-              else if (t.id === 'down-tap') ms = data.down_timer || 900000
-              
-              let en = 0
-              if (t.id === 'front-tap') en = data.front_enabled ? 1 : 0
-              else if (t.id === 'back-tap') en = data.back_enabled ? 1 : 0
-              else if (t.id === 'down-tap') en = data.down_enabled ? 1 : 0
-              
-              return `${pinMap[t.id]}:${en}:${ms}`
-            }).join(':')
-            
-            publish('home/servo/command', `CFG:${cfgParts}`)
+            publishFullConfig(publish)
           } catch(e) { console.error('Failed to parse taps order', e) }
         }
       })
@@ -133,19 +118,6 @@ function TapControl() {
     const msBack = timerRefs.current['back-tap']?.getDurationMs() || 900000;
     const msDown = timerRefs.current['down-tap']?.getDurationMs() || 900000;
     
-    // Construct the ordered CFG string for ESP32
-    // Format: CFG:pin1:en1:ms1:pin2:en2:ms2:pin3:en3:ms3
-    const pinMap = { 'front-tap': 7, 'back-tap': 8, 'down-tap': 11 }
-    const cfgParts = currentTaps.map(t => {
-      let ms
-      if (t.id === 'front-tap') ms = msFront
-      else if (t.id === 'back-tap') ms = msBack
-      else if (t.id === 'down-tap') ms = msDown
-      const en = newSwitches[t.id] ? 1 : 0
-      return `${pinMap[t.id]}:${en}:${ms}`
-    }).join(':')
-    
-    publish('home/servo/command', `CFG:${cfgParts}`)
 
     fetch('/api/motor-api', {
       method: 'POST',
@@ -160,7 +132,17 @@ function TapControl() {
         down_timer: msDown,
         taps_order: currentTaps.map(t => t.id)
       })
-    }).catch(err => console.error('Failed to save tap config:', err))
+    })
+      .then(() => publishFullConfig(publish, {
+        front_enabled: newSwitches['front-tap'],
+        front_timer: msFront,
+        back_enabled: newSwitches['back-tap'],
+        back_timer: msBack,
+        down_enabled: newSwitches['down-tap'],
+        down_timer: msDown,
+        taps_order: JSON.stringify(currentTaps.map(t => t.id))
+      }))
+      .catch(err => console.error('Failed to save tap config:', err))
   }
 
   // ── @dnd-kit sensors ──
