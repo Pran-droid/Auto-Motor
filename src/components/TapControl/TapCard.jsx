@@ -40,9 +40,9 @@ function TapCard({ id, label, timerClass, switchId, switchChecked, isActive, onS
       ref={setNodeRef}
       style={style}
     >
-      <div 
-        className="drag-handle" 
-        {...attributes} 
+      <div
+        className="drag-handle"
+        {...attributes}
         {...listeners}
         style={{ cursor: isDragging ? 'grabbing' : 'grab', display: 'flex', alignItems: 'center', padding: '0px', marginLeft: '12px', touchAction: 'none' }}
       >
@@ -50,11 +50,11 @@ function TapCard({ id, label, timerClass, switchId, switchChecked, isActive, onS
           <path fill="#aaa" d="M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
         </svg>
       </div>
-      <img 
-        src="/assets/valve-Photoroom.png" 
-        id={`${id}-image`} 
-        className={`tap-image ${isActive ? 'tap-image-on' : ''}`} 
-        alt={`${label} tap valve`} 
+      <img
+        src="/assets/valve-Photoroom.png"
+        id={`${id}-image`}
+        className={`tap-image ${isActive ? 'tap-image-on' : ''}`}
+        alt={`${label} tap valve`}
       />
       <FlipTimer
         ref={timerRef}

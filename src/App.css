@@ -1298,22 +1298,22 @@ h4 {
         align-items: flex-start;
         gap: 20px;
     }
-    
+
     .tap-image {
         width: 70px;
         height: 70px;
     }
-    
+
     .flip-main-timer {
         transform: scale(0.85);
         margin-left: 5px;
         margin-right: 5px;
     }
-    
+
     .tap-switch-container {
         transform: scale(0.8);
     }
-    
+
     #motor-switch-wrapper {
         transform: scale(0.5);
         margin-bottom: -90px;
@@ -1325,21 +1325,28 @@ h4 {
         width: 80px;
         height: 80px;
     }
+
     .flip-main-timer {
         margin-left: 5px;
         margin-right: 5px;
         transform: scale(0.9);
     }
-    #front-tap, #back-tap, #down-tap {
+
+    #front-tap,
+    #back-tap,
+    #down-tap {
         gap: 8px;
     }
+
     #motor-switch-container {
         /* gap: 2px; */
     }
+
     .drag-handle {
         padding: 5px !important;
         margin-left: 0px !important;
     }
+
     .tap-switch-container {
         transform: scale(0.85);
     }

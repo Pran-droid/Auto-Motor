@@ -14,9 +14,9 @@ const TOPIC = 'home/servo/command'
 
 
 function MotorControl() {
-  const [motorOn,         setMotorOn]         = useState(false)
+  const [motorOn, setMotorOn] = useState(false)
   const [scheduleEnabled, setScheduleEnabled] = useState(false)
-  const [startTime,       setStartTime]       = useState('08:00 AM')
+  const [startTime, setStartTime] = useState('08:00 AM')
   const { publish, subscribe } = useMqttContext()
 
 

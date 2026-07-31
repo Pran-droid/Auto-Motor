@@ -28,7 +28,7 @@ export async function publishFullConfig(publish, localOverrides = {}) {
       }
     }
 
-    const pinMap = { 'front-tap': 7, 'back-tap': 8, 'down-tap': 11 }
+    const pinMap = { 'front-tap': 8, 'back-tap': 11, 'down-tap': 7 }
     
     // Create the tap sequence parts (pin:en:ms)
     const tapParts = order.map(id => {

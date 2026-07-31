@@ -1,5 +1,5 @@
 import MotorControl from './components/MotorControl/MotorControl'
-import TapControl   from './components/TapControl/TapControl'
+import TapControl from './components/TapControl/TapControl'
 import CloudSyncIcon from './components/CloudSync/CloudSyncIcon'
 import { useMqtt } from './hooks/useMqtt'
 import { MqttContext } from './context/MqttContext'
@@ -16,7 +16,7 @@ function App() {
           {/* <span id="cloud-status-label">{mqtt.status}</span> */}
         </div>
         <MotorControl />
-        <TapControl   />
+        <TapControl />
       </div>
     </MqttContext.Provider>
   )
