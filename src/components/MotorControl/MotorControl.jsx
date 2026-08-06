@@ -33,10 +33,10 @@ function MotorControl() {
       .catch(err => console.error('Failed to load motor status:', err))
   }, [])
 
-  // ── Listen for SEQUENCE_DONE from ESP32 — auto-reset switch to OFF ──
+  // ── Listen for Sequence Complete from ESP32 — auto-reset switch to OFF ──
   useEffect(() => {
     const unsub = subscribe(TOPIC, (payload) => {
-      if (payload === 'SEQUENCE_DONE') {
+      if (payload === 'Sequence Complete') {
         console.log('[MQTT] Sequence done — resetting motor switch')
         setMotorOn(false)
         fetch('/api/motor-api', {
@@ -52,9 +52,14 @@ function MotorControl() {
 
 
   // ── Manual switch ──
-  function handleMotorChange(isOn) {
+  async function handleMotorChange(isOn) {
     setMotorOn(isOn)
-    publish(TOPIC, isOn ? 'ON' : 'OFF')
+    if (isOn) {
+      await publishFullConfig(publish)
+      publish(TOPIC, 'ON')
+    } else {
+      publish(TOPIC, 'OFF')
+    }
     fetch('/api/motor-api', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

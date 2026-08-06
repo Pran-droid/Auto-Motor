@@ -17,10 +17,12 @@
         "npm:@types/react-dom@^19.2.3",
         "npm:@types/react@^19.2.17",
         "npm:@vitejs/plugin-react@^6.0.3",
+        "npm:mqtt@^5.15.2",
         "npm:oxlint@^1.71.0",
         "npm:pg@^8.22.0",
         "npm:react-dom@^19.2.7",
         "npm:react@^19.2.7",
+        "npm:styled-components@^6.4.4",
         "npm:vite@^8.1.1"
       ]
     }

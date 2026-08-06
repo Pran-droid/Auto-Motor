@@ -56,7 +56,7 @@ function TapControl() {
 
   const { publish, subscribe } = useMqttContext()
 
-  // ── Listen for MQTT TAP_START messages to control the timers ──
+  // ── Listen for MQTT messages to control the timers ──
   useEffect(() => {
     const unsub = subscribe('home/servo/command', (payload) => {
       if (payload.startsWith('TAP_START:')) {
@@ -68,7 +68,24 @@ function TapControl() {
         if (timerRefs.current[tapId]) {
           timerRefs.current[tapId].start()
         }
-      } else if (payload === 'SEQUENCE_DONE' || payload === 'OFF') {
+      } else if (payload.startsWith('TAP_SYNC:')) {
+        const parts = payload.split(':')
+        const tapId = parts[1]
+        const timeLeft = parseInt(parts[2], 10)
+        
+        setActiveTapId((currentActiveId) => {
+          if (currentActiveId !== tapId) {
+            Object.keys(timerRefs.current).forEach(id => {
+              if (id !== tapId) timerRefs.current[id]?.stop()
+            })
+            if (timerRefs.current[tapId]) {
+              timerRefs.current[tapId].set(timeLeft)
+              timerRefs.current[tapId].start()
+            }
+          }
+          return tapId
+        })
+      } else if (payload === 'Sequence Complete' || payload === 'OFF') {
         setActiveTapId(null)
         Object.values(timerRefs.current).forEach(t => t?.stop())
       }
