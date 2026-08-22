@@ -1,48 +1,59 @@
-export async function publishFullConfig(publish, localOverrides = {}) {
+// configBuilder.js  — VERSION 2 (ESP32 as DB)
+// Builds and publishes the CFG: string directly to MQTT.
+// No longer fetches from /api/motor-api.
+// Accepts the full config object as a parameter.
+
+/**
+ * Publish a full CFG: string to MQTT based on the provided config object.
+ * @param {Function} publish  - MQTT publish function from useMqttContext
+ * @param {Object}   config   - Full config object with all tap & schedule settings
+ */
+export function publishFullConfig(publish, config = {}) {
   try {
-    // 1. Fetch latest state from the database
-    const res = await fetch('/api/motor-api')
-    if (!res.ok) throw new Error('Failed to fetch from motor-api')
-    const data = await res.json()
+    const {
+      front_enabled    = false,
+      front_timer      = 900000,
+      back_enabled     = false,
+      back_timer       = 900000,
+      down_enabled     = false,
+      down_timer       = 900000,
+      taps_order       = '["front-tap","back-tap","down-tap"]',
+      schedule_enabled = false,
+      start_time       = '08:00 AM',
+    } = config
 
-    // 2. Merge any local overrides (e.g. a switch that was just toggled)
-    const merged = { ...data, ...localOverrides }
-
-    // 3. Parse the time string "HH:MM AM/PM" into hour and minute
-    const timeStr = merged.start_time || '08:00 AM'
-    const [time, ampm] = timeStr.trim().split(' ')
+    // Parse "HH:MM AM/PM" into 24h hour + minute
+    const timeStr = start_time.trim()
+    const [time, ampm] = timeStr.split(' ')
     let [h, m] = time.split(':').map(Number)
     if (ampm === 'PM' && h !== 12) h += 12
     if (ampm === 'AM' && h === 12) h = 0
 
-    // 4. Parse schedule enabled flag
-    const sch = merged.schedule_enabled ? 1 : 0
+    const sch = schedule_enabled ? 1 : 0
 
-    // 5. Build tap parts based on current sort order
+    // Parse order
     let order = ['front-tap', 'back-tap', 'down-tap']
-    if (merged.taps_order) {
+    if (taps_order) {
       try {
-        order = JSON.parse(merged.taps_order)
+        const parsed = typeof taps_order === 'string' ? JSON.parse(taps_order) : taps_order
+        if (Array.isArray(parsed) && parsed.length === 3) order = parsed
       } catch (e) {
         console.error('Failed to parse taps_order', e)
       }
     }
 
-    const pinMap = { 'front-tap': 8, 'back-tap': 4, 'down-tap': 0 }
-    
-    // Create the tap sequence parts (pin:en:ms)
-    const tapParts = order.map(id => {
-      const prefix = id.split('-')[0] // "front", "back", "down"
-      const en = merged[`${prefix}_enabled`] ? 1 : 0
-      const ms = merged[`${prefix}_timer`] || 900000
-      return `${pinMap[id]}:${en}:${ms}`
-    }).join(':')
+    const pinMap    = { 'front-tap': 8, 'back-tap': 4, 'down-tap': 0 }
+    const enableMap = { 'front-tap': front_enabled, 'back-tap': back_enabled, 'down-tap': down_enabled }
+    const timerMap  = { 'front-tap': front_timer,   'back-tap': back_timer,   'down-tap': down_timer  }
 
-    // 6. Final CFG payload: CFG:pin1:en1:ms1:pin2:en2:ms2:pin3:en3:ms3:scheduleEnabled:hour:minute
+    const tapParts = order.map(id =>
+      `${pinMap[id]}:${enableMap[id] ? 1 : 0}:${timerMap[id]}`
+    ).join(':')
+
     const finalPayload = `CFG:${tapParts}:${sch}:${h}:${m}`
-    console.log('[MQTT] Publishing unified config:', finalPayload)
+    console.log('[MQTT V2] Publishing config:', finalPayload)
     publish('home/servo/command', finalPayload)
   } catch (err) {
-    console.error('[ConfigBuilder] Error publishing full config:', err)
+    console.error('[ConfigBuilder V2] Error publishing config:', err)
   }
 }

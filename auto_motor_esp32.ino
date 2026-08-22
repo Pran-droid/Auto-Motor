@@ -1,9 +1,11 @@
 /*
  * ============================================================
  *  Auto Motor — ESP32 + PCA9685 + HiveMQ Cloud
+ *  VERSION 2: ESP32 AS DATABASE (No Postgres)
  *  - STRICT SEQUENTIAL MOVEMENT & PWM SHUTOFF
  *  - DUAL TIME (NTP + DS1307 RTC Fallback)
- *  - FLASH MEMORY RECOVERY
+ *  - FLASH MEMORY IS SINGLE SOURCE OF TRUTH
+ *  - GET_CFG: React app requests config, ESP32 replies via MQTT
  *  - FIXED: Non-blocking Wi-Fi Reconnect
  *  - FIXED: Memory-safe MQTT Callback
  *  - FIXED: Strict CFG Validation
@@ -540,9 +542,76 @@ void parseConfigString(String payload) {
     preferences.putBool("m_sch_en", motor.scheduleEnabled);
     preferences.putInt("m_sch_h", motor.scheduleHour);
     preferences.putInt("m_sch_m", motor.scheduleMinute);
+
+    // V2: Also save the tap ORDER to flash so publishConfig() can restore it
+    auto tapToId = [](Tap* t) -> String {
+        if (t->channel == FRONT_CH) return "front-tap";
+        if (t->channel == BACK_CH)  return "back-tap";
+        return "down-tap";
+    };
+    String tapOrder = tapToId(taps[0]) + "," + tapToId(taps[1]) + "," + tapToId(taps[2]);
+    preferences.putString("tap_order", tapOrder);
     
     Serial.println("Config updated via CFG.");
     if (mqttClient.connected()) mqttClient.publish(topic_status, "Configuration Updated & Saved");
+}
+
+// ==========================================
+// V2: PUBLISH FULL CONFIG TO REACT APP
+// Called when React app sends "GET_CFG"
+// ==========================================
+void publishConfig() {
+    // Read tap order from flash (stored as "front-tap,back-tap,down-tap")
+    String order = preferences.getString("tap_order", "front-tap,back-tap,down-tap");
+
+    // Build tap parts from the stored order
+    // Format: pin:en:ms for each tap in order
+    String tapParts = "";
+    int idx = 0;
+    String remaining = order;
+    while (remaining.length() > 0 && idx < 3) {
+        int comma = remaining.indexOf(',');
+        String tapId = (comma == -1) ? remaining : remaining.substring(0, comma);
+        tapId.trim();
+        remaining = (comma == -1) ? "" : remaining.substring(comma + 1);
+
+        int pin = 8; bool en = false; int ms = 900000;
+        if (tapId == "front-tap") {
+            pin = FRONT_CH;
+            en  = preferences.getBool("t0_en", false);
+            ms  = preferences.getInt("t0_timer", 900000);
+        } else if (tapId == "back-tap") {
+            pin = BACK_CH;
+            en  = preferences.getBool("t1_en", false);
+            ms  = preferences.getInt("t1_timer", 900000);
+        } else if (tapId == "down-tap") {
+            pin = DOWN_CH;
+            en  = preferences.getBool("t2_en", false);
+            ms  = preferences.getInt("t2_timer", 900000);
+        }
+
+        if (idx > 0) tapParts += ":";
+        tapParts += String(pin) + ":" + (en ? "1" : "0") + ":" + String(ms);
+        idx++;
+    }
+
+    bool schEn  = preferences.getBool("m_sch_en", false);
+    int  schH   = preferences.getInt("m_sch_h", 8);
+    int  schM   = preferences.getInt("m_sch_m", 0);
+
+    // Build time string "HH:MM AM/PM"
+    int displayH = schH % 12; if (displayH == 0) displayH = 12;
+    String ampm = (schH < 12) ? "AM" : "PM";
+    char timeStr[12];
+    snprintf(timeStr, sizeof(timeStr), "%02d:%02d %s", displayH, schM, ampm.c_str());
+
+    // Final payload: CFG_SYNC:schEn:timeStr:tapParts:order
+    // e.g. CFG_SYNC:0:08:00 AM:8:1:900000:4:0:900000:0:1:900000:front-tap,back-tap,down-tap
+    String msg = "CFG_SYNC:" + String(schEn ? "1" : "0") + ":" + String(timeStr) +
+                 ":" + tapParts + ":" + order;
+
+    Serial.println("[V2] Publishing config to app: " + msg);
+    if (mqttClient.connected()) mqttClient.publish(topic_status, msg.c_str());
 }
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
@@ -552,7 +621,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     Serial.print("MQTT Received: ");
     Serial.println(message);
 
-    if (message.startsWith("CFG:")) {
+    if (message == "GET_CFG") {
+        // V2: React app is requesting the full config from flash
+        publishConfig();
+    }
+    else if (message.startsWith("CFG:")) {
         parseConfigString(message);
     } 
     else if (message == "ON") {

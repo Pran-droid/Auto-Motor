@@ -1,7 +1,6 @@
-// TapControl.jsx
-// Container for all three tap cards.
-// Uses @dnd-kit (DndContext + SortableContext + arrayMove) for drag-and-drop reordering,
-// mirroring the pattern from the react-drag-and-drop-main reference project.
+// TapControl.jsx — VERSION 2 (ESP32 as DB)
+// Loads config from CFG_SYNC (passed as prop from App via MotorControl).
+// Saves by publishing CFG: directly to MQTT — no Postgres.
 
 import { useState, useRef, useEffect } from 'react'
 import {
@@ -30,7 +29,7 @@ const INITIAL_TAPS = [
   { id: 'down-tap', label: 'Down', timerClass: 'flip-timer-down', switchId: 'down-tap-switch' },
 ]
 
-function TapControl() {
+function TapControl({ initialConfig }) {
   // Ordered list of tap definitions — reordered on drag end
   const [taps, setTaps] = useState(INITIAL_TAPS)
 
@@ -101,73 +100,46 @@ function TapControl() {
     return unsub
   }, [subscribe])
 
+  // ── V2: Populate UI when ESP32 sends CFG_SYNC (passed as prop) ──
   useEffect(() => {
-    fetch('/api/motor-api')
-      .then(res => res.json())
-      .then(data => {
-        setSwitches({
-          'front-tap': data.front_enabled,
-          'back-tap': data.back_enabled,
-          'down-tap': data.down_enabled,
-        })
-        if (timerRefs.current['front-tap']) timerRefs.current['front-tap'].set(data.front_timer)
-        if (timerRefs.current['back-tap']) timerRefs.current['back-tap'].set(data.back_timer)
-        if (timerRefs.current['down-tap']) timerRefs.current['down-tap'].set(data.down_timer)
-        
-        if (data.taps_order) {
-          try {
-            const order = JSON.parse(data.taps_order)
-            let currentOrder = INITIAL_TAPS
-            if (Array.isArray(order) && order.length === 3) {
-              const sortedTaps = []
-              order.forEach(id => {
-                const found = INITIAL_TAPS.find(t => t.id === id)
-                if (found) sortedTaps.push(found)
-              })
-              if (sortedTaps.length === 3) {
-                setTaps(sortedTaps)
-                currentOrder = sortedTaps
-              }
-            }
-            
-            // Push the loaded config directly to MQTT so ESP32 has it before sequence starts
-            publishFullConfig(publish)
-          } catch(e) { console.error('Failed to parse taps order', e) }
-        }
-      })
-      .catch(err => console.error('Failed to load tap config:', err))
-  }, [publish])
+    if (!initialConfig) return
+    const { front_enabled, front_timer, back_enabled, back_timer, down_enabled, down_timer, taps_order } = initialConfig
 
-  function saveTapsConfig(newSwitches, currentTaps = taps) {
-    const msFront = timerRefs.current['front-tap']?.getDurationMs() || 900000;
-    const msBack = timerRefs.current['back-tap']?.getDurationMs() || 900000;
-    const msDown = timerRefs.current['down-tap']?.getDurationMs() || 900000;
-    
-
-    fetch('/api/motor-api', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'taps_config',
-        front_enabled: newSwitches['front-tap'],
-        front_timer: msFront,
-        back_enabled: newSwitches['back-tap'],
-        back_timer: msBack,
-        down_enabled: newSwitches['down-tap'],
-        down_timer: msDown,
-        taps_order: currentTaps.map(t => t.id)
-      })
+    setSwitches({
+      'front-tap': front_enabled ?? false,
+      'back-tap':  back_enabled  ?? false,
+      'down-tap':  down_enabled  ?? false,
     })
-      .then(() => publishFullConfig(publish, {
-        front_enabled: newSwitches['front-tap'],
-        front_timer: msFront,
-        back_enabled: newSwitches['back-tap'],
-        back_timer: msBack,
-        down_enabled: newSwitches['down-tap'],
-        down_timer: msDown,
-        taps_order: JSON.stringify(currentTaps.map(t => t.id))
-      }))
-      .catch(err => console.error('Failed to save tap config:', err))
+    if (timerRefs.current['front-tap']) timerRefs.current['front-tap'].set(front_timer ?? 900000)
+    if (timerRefs.current['back-tap'])  timerRefs.current['back-tap'].set(back_timer   ?? 900000)
+    if (timerRefs.current['down-tap'])  timerRefs.current['down-tap'].set(down_timer   ?? 900000)
+
+    if (taps_order) {
+      try {
+        const order = typeof taps_order === 'string' ? JSON.parse(taps_order) : taps_order
+        if (Array.isArray(order) && order.length === 3) {
+          const sorted = order.map(id => INITIAL_TAPS.find(t => t.id === id)).filter(Boolean)
+          if (sorted.length === 3) setTaps(sorted)
+        }
+      } catch (e) { console.error('Failed to parse taps_order', e) }
+    }
+  }, [initialConfig])
+
+  // ── V2: Save config by publishing CFG: to MQTT — ESP32 saves to flash ──
+  function saveTapsConfig(newSwitches, currentTaps = taps) {
+    const msFront = timerRefs.current['front-tap']?.getDurationMs() || 900000
+    const msBack  = timerRefs.current['back-tap']?.getDurationMs()  || 900000
+    const msDown  = timerRefs.current['down-tap']?.getDurationMs()  || 900000
+
+    publishFullConfig(publish, {
+      front_enabled: newSwitches['front-tap'],
+      front_timer:   msFront,
+      back_enabled:  newSwitches['back-tap'],
+      back_timer:    msBack,
+      down_enabled:  newSwitches['down-tap'],
+      down_timer:    msDown,
+      taps_order:    JSON.stringify(currentTaps.map(t => t.id)),
+    })
   }
 
   // ── @dnd-kit sensors ──

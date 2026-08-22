@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import MotorControl from './components/MotorControl/MotorControl'
 import TapControl from './components/TapControl/TapControl'
 import CloudSyncIcon from './components/CloudSync/CloudSyncIcon'
@@ -6,6 +7,8 @@ import { MqttContext } from './context/MqttContext'
 
 function App() {
   const mqtt = useMqtt()
+  // Populated once ESP32 replies to GET_CFG with CFG_SYNC
+  const [espConfig, setEspConfig] = useState(null)
 
   return (
     <MqttContext.Provider value={mqtt}>
@@ -15,8 +18,8 @@ function App() {
           <CloudSyncIcon status={mqtt.status} />
           {/* <span id="cloud-status-label">{mqtt.status}</span> */}
         </div>
-        <MotorControl />
-        <TapControl />
+        <MotorControl onConfigSync={setEspConfig} />
+        <TapControl initialConfig={espConfig} />
       </div>
     </MqttContext.Provider>
   )
