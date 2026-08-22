@@ -59,32 +59,40 @@ function TapControl() {
   // ── Listen for MQTT messages to control the timers ──
   useEffect(() => {
     const unsub = subscribe('home/servo/command', (payload) => {
+
       if (payload.startsWith('TAP_START:')) {
         const tapId = payload.split(':')[1]
-        setActiveTapId(tapId)
-        // Pause any running timers
+
+        // 1. Stop ALL timers first
         Object.values(timerRefs.current).forEach(t => t?.stop())
-        // Start the specific tap
-        if (timerRefs.current[tapId]) {
-          timerRefs.current[tapId].start()
+
+        // 2. Update active tap state
+        setActiveTapId(tapId)
+
+        // 3. Start the correct timer
+        const timerHandle = timerRefs.current[tapId]
+        if (timerHandle) {
+          timerHandle.start()
         }
+
       } else if (payload.startsWith('TAP_SYNC:')) {
+        // ESP32 sends TAP_SYNC:tapId:remainingMs every 5 seconds during pouring.
         const parts = payload.split(':')
         const tapId = parts[1]
-        const timeLeft = parseInt(parts[2], 10)
-        
-        setActiveTapId((currentActiveId) => {
-          if (currentActiveId !== tapId) {
-            Object.keys(timerRefs.current).forEach(id => {
-              if (id !== tapId) timerRefs.current[id]?.stop()
-            })
-            if (timerRefs.current[tapId]) {
-              timerRefs.current[tapId].set(timeLeft)
-              timerRefs.current[tapId].start()
-            }
-          }
-          return tapId
+        const remainingMs = parseInt(parts[2], 10)
+
+        setActiveTapId(tapId)
+
+        Object.keys(timerRefs.current).forEach(id => {
+          if (id !== tapId) timerRefs.current[id]?.stop()
         })
+
+        const timerHandle = timerRefs.current[tapId]
+        if (timerHandle) {
+          timerHandle.set(remainingMs)
+          timerHandle.start()
+        }
+
       } else if (payload === 'Sequence Complete' || payload === 'OFF') {
         setActiveTapId(null)
         Object.values(timerRefs.current).forEach(t => t?.stop())
