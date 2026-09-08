@@ -62,15 +62,25 @@ export function useMqtt() {
 
       c.on('message', (topic, payloadBuf) => {
         const payload = payloadBuf.toString()
-        console.log(`[MQTT] ← ${topic}: ${payload}`)
-        // Track ESP32 online/offline via LWT retained message
+        console.log(`[MQTT] \u2190 ${topic}: ${payload}`)
+        // 1. LWT retained message \u2014 definitive online/offline signal
         if (topic === TOPIC_LWT) {
           setEspStatus(payload === 'Online' ? 'connected' : 'error')
+        }
+        // 2. Any response from ESP32 proves it is online (covers pre-LWT firmware)
+        const TOPIC_STATUS  = 'home/servo/status'
+        const TOPIC_COMMAND = 'home/servo/command'
+        if (
+          (topic === TOPIC_STATUS  && (payload.startsWith('CFG_SYNC:') || payload === 'Sequence Started' || payload === 'Configuration Updated & Saved')) ||
+          (topic === TOPIC_COMMAND && (payload.startsWith('TAP_SYNC:') || payload.startsWith('TAP_START:') || payload === 'Sequence Complete'))
+        ) {
+          setEspStatus('connected')
         }
         setLastMessage({ topic, payload })
         const handlers = handlersRef.current[topic] || []
         handlers.forEach(fn => fn(payload, topic))
       })
+
 
       clientRef.current = c
     }
