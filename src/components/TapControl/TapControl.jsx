@@ -40,6 +40,13 @@ function TapControl({ initialConfig }) {
     'down-tap': false,
   })
 
+  // Source of truth for timers
+  const [timers, setTimers] = useState({
+    'front-tap': 900000,
+    'back-tap': 900000,
+    'down-tap': 900000,
+  })
+
   // Timer setter popup state
   const [popup, setPopup] = useState({ open: false, title: '', tapId: null })
   
@@ -57,7 +64,7 @@ function TapControl({ initialConfig }) {
 
   // ── Listen for MQTT messages to control the timers ──
   useEffect(() => {
-    const unsub = subscribe('home/servo/command', (payload) => {
+    const unsubCmd = subscribe('home/servo/command', (payload) => {
 
       if (payload.startsWith('TAP_START:')) {
         const tapId = payload.split(':')[1]
@@ -97,7 +104,18 @@ function TapControl({ initialConfig }) {
         Object.values(timerRefs.current).forEach(t => t?.stop())
       }
     })
-    return unsub
+
+    const unsubStatus = subscribe('home/servo/status', (payload) => {
+      if (payload.startsWith('Aborted:')) {
+        setActiveTapId(null)
+        Object.values(timerRefs.current).forEach(t => t?.stop())
+      }
+    })
+
+    return () => {
+      unsubCmd()
+      unsubStatus()
+    }
   }, [subscribe])
 
   // ── V2: Populate UI when ESP32 sends CFG_SYNC (passed as prop) ──
@@ -110,6 +128,13 @@ function TapControl({ initialConfig }) {
       'back-tap':  back_enabled  ?? false,
       'down-tap':  down_enabled  ?? false,
     })
+    
+    setTimers({
+      'front-tap': front_timer ?? 900000,
+      'back-tap':  back_timer  ?? 900000,
+      'down-tap':  down_timer  ?? 900000,
+    })
+
     if (timerRefs.current['front-tap']) timerRefs.current['front-tap'].set(front_timer ?? 900000)
     if (timerRefs.current['back-tap'])  timerRefs.current['back-tap'].set(back_timer   ?? 900000)
     if (timerRefs.current['down-tap'])  timerRefs.current['down-tap'].set(down_timer   ?? 900000)
@@ -126,18 +151,14 @@ function TapControl({ initialConfig }) {
   }, [initialConfig])
 
   // ── V2: Save config by publishing CFG: to MQTT — ESP32 saves to flash ──
-  function saveTapsConfig(newSwitches, currentTaps = taps) {
-    const msFront = timerRefs.current['front-tap']?.getDurationMs() || 900000
-    const msBack  = timerRefs.current['back-tap']?.getDurationMs()  || 900000
-    const msDown  = timerRefs.current['down-tap']?.getDurationMs()  || 900000
-
+  function saveTapsConfig(newSwitches, currentTaps = taps, currentTimers = timers) {
     publishFullConfig(publish, {
       front_enabled: newSwitches['front-tap'],
-      front_timer:   msFront,
+      front_timer:   currentTimers['front-tap'],
       back_enabled:  newSwitches['back-tap'],
-      back_timer:    msBack,
+      back_timer:    currentTimers['back-tap'],
       down_enabled:  newSwitches['down-tap'],
-      down_timer:    msDown,
+      down_timer:    currentTimers['down-tap'],
       taps_order:    JSON.stringify(currentTaps.map(t => t.id)),
     })
   }
@@ -157,14 +178,14 @@ function TapControl({ initialConfig }) {
     const to = taps.findIndex(t => t.id === over.id)
     const newTaps = arrayMove(taps, from, to)
     setTaps(newTaps)
-    saveTapsConfig(switches, newTaps)
+    saveTapsConfig(switches, newTaps, timers)
   }
 
   function handleSwitchChange(tapId, isOn) {
     const newSwitches = { ...switches, [tapId]: isOn }
     setSwitches(newSwitches)
     console.log(`${tapId} switch:`, isOn ? 'ON' : 'OFF')
-    saveTapsConfig(newSwitches)
+    saveTapsConfig(newSwitches, taps, timers)
   }
 
   function openTimerSetter(tapId, label) {
@@ -172,9 +193,13 @@ function TapControl({ initialConfig }) {
   }
 
   function handleTimerSet(ms) {
-    if (popup.tapId && timerRefs.current[popup.tapId]) {
-      timerRefs.current[popup.tapId].set(ms)
-      saveTapsConfig(switches, taps)
+    if (popup.tapId) {
+      const newTimers = { ...timers, [popup.tapId]: ms }
+      setTimers(newTimers)
+      if (timerRefs.current[popup.tapId]) {
+        timerRefs.current[popup.tapId].set(ms)
+      }
+      saveTapsConfig(switches, taps, newTimers)
     }
   }
 
@@ -197,6 +222,7 @@ function TapControl({ initialConfig }) {
                 switchId={tap.switchId}
                 switchChecked={switches[tap.id]}
                 isActive={activeTapId === tap.id}
+                defaultMs={timers[tap.id]}
                 onSwitchChange={isOn => handleSwitchChange(tap.id, isOn)}
                 onTimerClick={() => openTimerSetter(tap.id, tap.label)}
                 timerRef={el => { timerRefs.current[tap.id] = el }}

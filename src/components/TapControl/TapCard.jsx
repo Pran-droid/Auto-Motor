@@ -15,7 +15,7 @@ import { CSS } from '@dnd-kit/utilities'
 import FlipTimer from './FlipTimer'
 import CosmicSwitch from './CosmicSwitch'
 
-function TapCard({ id, label, timerClass, switchId, switchChecked, isActive, onSwitchChange, onTimerClick, timerRef }) {
+function TapCard({ id, label, timerClass, switchId, switchChecked, isActive, defaultMs, onSwitchChange, onTimerClick, timerRef }) {
   const {
     attributes,
     listeners,
@@ -60,6 +60,7 @@ function TapCard({ id, label, timerClass, switchId, switchChecked, isActive, onS
         ref={timerRef}
         sectionClass={timerClass}
         label={label}
+        defaultMs={defaultMs}
         onTimerClick={onTimerClick}
       />
       <CosmicSwitch

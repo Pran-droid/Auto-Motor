@@ -27,7 +27,7 @@ function MotorControl({ onConfigSync }) {
   // ── Listen for CFG_SYNC reply from ESP32 ──
   // Format: CFG_SYNC:schEn:HH:MM AM/PM:pin1:en1:ms1:pin2:en2:ms2:pin3:en3:ms3:order
   useEffect(() => {
-    const unsub = subscribe(TOPIC_STATUS, (payload) => {
+    const unsubStatus = subscribe(TOPIC_STATUS, (payload) => {
 
       if (payload.startsWith('CFG_SYNC:')) {
         console.log('[V2] CFG_SYNC received:', payload)
@@ -64,9 +64,14 @@ function MotorControl({ onConfigSync }) {
         }
         const orderStr = restParts[11] || 'front-tap,back-tap,down-tap'
         const order    = orderStr.split(',').map(s => s.trim())
+        
+        const isRunning = restParts[12] === '1'
 
         setScheduleEnabled(schEn)
         setStartTime(timeStr)
+        if (isRunning) {
+          setMotorOn(true)
+        }
 
         // Bubble the full config up to App so TapControl can use it
         if (onConfigSync) {
@@ -84,13 +89,27 @@ function MotorControl({ onConfigSync }) {
         }
       }
 
-      // Auto-reset switch to OFF when sequence finishes
-      if (payload === 'Sequence Complete') {
-        console.log('[MQTT] Sequence done — resetting motor switch')
+      if (payload === 'Sequence Started') {
+        console.log('[MQTT] Sequence started — turning motor switch ON')
+        setMotorOn(true)
+      } else if (payload.startsWith('Aborted:')) {
+        console.log('[MQTT] Sequence aborted — resetting motor switch OFF')
         setMotorOn(false)
       }
     })
-    return unsub
+
+    const unsubCmd = subscribe(TOPIC_CMD, (payload) => {
+      // Auto-reset switch to OFF when sequence finishes
+      if (payload === 'Sequence Complete') {
+        console.log('[MQTT] Sequence done — resetting motor switch OFF')
+        setMotorOn(false)
+      }
+    })
+
+    return () => {
+      unsubStatus()
+      unsubCmd()
+    }
   }, [subscribe, onConfigSync])
 
   // ── Manual motor switch ──

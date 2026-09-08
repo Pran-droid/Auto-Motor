@@ -6,7 +6,9 @@
 //   connected       → fast spin (0.8s) + sparkles + green glow  [mimics :hover]
 //   error           → gears fly apart + red tint                 [mimics :active]
 
+import React, { useState, useEffect } from 'react'
 import styled, { keyframes, css } from 'styled-components'
+import { useMqttContext } from '../../context/MqttContext'
 
 const rotateGear = keyframes`
   0%   { transform: rotate(0deg); }
@@ -76,13 +78,20 @@ const StyledWrapper = styled.div`
 
   .g3 { position: relative; right: 10px; }
 
-  /* ── CONNECTED state → mimics :hover (fast spin + glow) ── */
+  /* ── CONNECTED (IDLE) state → green glow, keep slow spin ── */
   .gear-wrapper.is-connected .g1,
+  .gear-wrapper.is-connected .g2,
   .gear-wrapper.is-connected .g3 {
+    filter: drop-shadow(1px 1px 2px #067c40);
+  }
+
+  /* ── RUNNING state → fast spin + glow ── */
+  .gear-wrapper.is-running .g1,
+  .gear-wrapper.is-running .g3 {
     animation: ${rotateGear} 0.8s linear infinite;
     filter: drop-shadow(1px 1px 2px #067c40);
   }
-  .gear-wrapper.is-connected .g2 {
+  .gear-wrapper.is-running .g2 {
     animation: ${rotateGear} 0.8s linear infinite reverse;
     filter: drop-shadow(1px 1px 2px #067c40);
     transition: none;
@@ -118,14 +127,14 @@ const StyledWrapper = styled.div`
   /* default: no sparkles */
   .gear-wrapper .spark { opacity: 0; left: 0; animation: none; }
 
-  /* connected: show sparkles */
-  .gear-wrapper.is-connected .spark {
+  /* running: show sparkles */
+  .gear-wrapper.is-running .spark {
     opacity: 1;
     animation: ${sparkLeft} 0.4s ease-out forwards infinite;
   }
-  .gear-wrapper.is-connected .spark:nth-child(1) { top: 0%;  left: 50%; }
-  .gear-wrapper.is-connected .spark:nth-child(2) { top: 20%; left: 50%; }
-  .gear-wrapper.is-connected .spark:nth-child(3) { top: 35%; left: 50%; }
+  .gear-wrapper.is-running .spark:nth-child(1) { top: 0%;  left: 50%; }
+  .gear-wrapper.is-running .spark:nth-child(2) { top: 20%; left: 50%; }
+  .gear-wrapper.is-running .spark:nth-child(3) { top: 35%; left: 50%; }
 
   /* ── tooltip text — removed ── */
 `
@@ -196,11 +205,37 @@ function GearSvg({ className }) {
 }
 
 function EspStatusGear({ status = 'idle' }) {
+  const mqtt = useMqttContext()
+  const [isRunning, setIsRunning] = useState(false)
+
+  useEffect(() => {
+    if (!mqtt?.subscribe) return
+    const unsubStatus = mqtt.subscribe('home/servo/status', (payload) => {
+      if (payload === 'Sequence Started') setIsRunning(true)
+      else if (payload.startsWith('Aborted:')) setIsRunning(false)
+      else if (payload.startsWith('CFG_SYNC:')) {
+         if (payload.endsWith(':1')) setIsRunning(true)
+         if (payload.endsWith(':0')) setIsRunning(false)
+      }
+    })
+    
+    const unsubCmd = mqtt.subscribe('home/servo/command', (payload) => {
+      if (payload === 'Sequence Complete') setIsRunning(false)
+      else if (payload.startsWith('TAP_SYNC:') || payload.startsWith('TAP_START:')) setIsRunning(true)
+    })
+    
+    return () => {
+      unsubStatus()
+      unsubCmd()
+    }
+  }, [mqtt])
+
   // Map status → wrapper class
   const wrapperClass = [
     'gear-wrapper',
     status === 'connected' ? 'is-connected' : '',
     status === 'error'     ? 'is-error'     : '',
+    isRunning              ? 'is-running'   : '',
   ].filter(Boolean).join(' ')
 
   const label = {
