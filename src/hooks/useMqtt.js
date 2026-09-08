@@ -1,7 +1,7 @@
 // useMqtt.js
 // Custom hook that manages the MQTT connection to HiveMQ Cloud.
 // Connects over secure WebSocket (wss://) using the mqtt.js browser client.
-// Returns: { status, publish, subscribe, lastMessage }
+// Returns: { status, espStatus, setEspStatus, publish, subscribe, lastMessage }
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import mqtt from 'mqtt'
@@ -10,9 +10,11 @@ const MQTT_HOST   = 'wss://3ced25e5a1194f8d822b5903ac4fa001.s1.eu.hivemq.cloud:8
 const MQTT_USER   = 'Pran'
 const MQTT_PASS   = 'automotor'
 const CLIENT_ID   = `web-${Math.random().toString(16).slice(2, 8)}`
+const TOPIC_LWT   = 'home/servo/lwt'  // ESP32 Last Will and Testament topic
 
 export function useMqtt() {
   const [status,      setStatus]      = useState('idle')      // idle | connecting | connected | error
+  const [espStatus,   setEspStatus]   = useState('idle')      // idle | connected | error
   const [lastMessage, setLastMessage] = useState(null)         // { topic, payload }
   const clientRef    = useRef(null)
   const handlersRef  = useRef({})     // topic → [callback] map
@@ -32,6 +34,8 @@ export function useMqtt() {
       c.on('connect', () => {
         console.log('[MQTT] connected')
         setStatus('connected')
+        // Subscribe to LWT so we know when ESP32 goes online/offline
+        c.subscribe(TOPIC_LWT)
         // Automatically resubscribe to any topics we registered for
         Object.keys(handlersRef.current).forEach(topic => {
           c.subscribe(topic)
@@ -41,21 +45,28 @@ export function useMqtt() {
       c.on('reconnect', () => {
         console.log('[MQTT] reconnecting…')
         setStatus('connecting')
+        setEspStatus('idle')
       })
 
       c.on('error', (err) => {
         console.error('[MQTT] error', err)
         setStatus('error')
+        setEspStatus('idle')
       })
 
       c.on('offline', () => {
         console.warn('[MQTT] offline')
         setStatus('error')
+        setEspStatus('idle')
       })
 
       c.on('message', (topic, payloadBuf) => {
         const payload = payloadBuf.toString()
         console.log(`[MQTT] ← ${topic}: ${payload}`)
+        // Track ESP32 online/offline via LWT retained message
+        if (topic === TOPIC_LWT) {
+          setEspStatus(payload === 'Online' ? 'connected' : 'error')
+        }
         setLastMessage({ topic, payload })
         const handlers = handlersRef.current[topic] || []
         handlers.forEach(fn => fn(payload, topic))
@@ -98,5 +109,5 @@ export function useMqtt() {
     }
   }, [])
 
-  return { status, publish, subscribe, lastMessage }
+  return { status, espStatus, setEspStatus, publish, subscribe, lastMessage }
 }

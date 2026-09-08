@@ -52,6 +52,7 @@ const char* mqtt_pass   = "automotor";
 
 const char* topic_command = "home/servo/command";
 const char* topic_status  = "home/servo/status";
+const char* topic_lwt     = "home/servo/lwt";  // Last Will & Testament topic
 
 WiFiClientSecure espClient;
 PubSubClient     mqttClient(espClient);
@@ -642,9 +643,13 @@ void reconnectMQTT() {
         lastMqttReconnectAttempt = currentMillis;
         
         String clientId = "ESP32-" + String(random(0xffff), HEX);
-        if (mqttClient.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
+        // Connect with LWT: broker publishes "Offline" (retained) if we drop unexpectedly
+        if (mqttClient.connect(clientId.c_str(), mqtt_user, mqtt_pass,
+                               topic_lwt, 1, true, "Offline")) {
             mqttClient.subscribe(topic_command);
-            Serial.println("MQTT Connected");
+            // Announce we are online (retained so app sees it immediately on subscribe)
+            mqttClient.publish(topic_lwt, "Online", true);
+            Serial.println("MQTT Connected with LWT");
         } else {
             Serial.println("MQTT Reconnect failed. Trying again in 5 seconds...");
         }
