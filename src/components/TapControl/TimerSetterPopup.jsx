@@ -11,7 +11,7 @@ import { useEffect, useRef } from 'react'
 
 const WHEEL_ITEM_H = 40
 
-function TimerSetterPopup({ open, title, onClose, onSet }) {
+function TimerSetterPopup({ open, title, onClose, onSet, currentMs = 900000 }) {
   const wheelMinsRef = useRef(null)
   const wheelSecsRef = useRef(null)
   const innerMinsRef = useRef(null)
@@ -32,17 +32,20 @@ function TimerSetterPopup({ open, title, onClose, onSet }) {
     })
   }, [])
 
-  // When popup opens, scroll to default values and refresh active state
+  // When popup opens, scroll to the current timer value and refresh active state
   useEffect(() => {
     if (!open) return
+    const totalSec = Math.floor(currentMs / 1000)
+    const mins = Math.floor(totalSec / 60) % 60
+    const secs = totalSec % 60
     setTimeout(() => {
-      // Start in the middle set (index 3000)
-      scrollWheelTo(wheelMinsRef.current, 3000 + 15)
-      scrollWheelTo(wheelSecsRef.current, 3000 + 0)
+      // Start in the middle set (index 3000), offset by current value
+      scrollWheelTo(wheelMinsRef.current, 3000 + mins)
+      scrollWheelTo(wheelSecsRef.current, 3000 + secs)
       refreshActive(wheelMinsRef.current, innerMinsRef.current)
       refreshActive(wheelSecsRef.current, innerSecsRef.current)
     }, 50)
-  }, [open])
+  }, [open, currentMs])
 
   function scrollWheelTo(wheel, v, smooth = false) {
     if (!wheel) return

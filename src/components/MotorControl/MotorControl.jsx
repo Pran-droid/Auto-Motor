@@ -2,7 +2,7 @@
 // Motor on/off + schedule. Loads config from ESP32 flash via MQTT GET_CFG.
 // No Postgres / /api/motor-api calls.
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import RockerSwitch from './RockerSwitch'
 import TimePicker from './TimePicker'
 import { useMqttContext } from '../../context/MqttContext'
@@ -15,6 +15,9 @@ function MotorControl({ onConfigSync }) {
   const [motorOn, setMotorOn] = useState(false)
   const [scheduleEnabled, setScheduleEnabled] = useState(false)
   const [startTime, setStartTime] = useState('08:00 AM')
+  // Keep a ref to the latest full config received from ESP32 so we can always
+  // publish a complete CFG: without clobbering tap data (Bug 2 fix)
+  const fullConfigRef = useRef(null)
   const { publish, subscribe, status } = useMqttContext()
 
   // ── Request config from ESP32 once MQTT is connected ──
@@ -75,7 +78,7 @@ function MotorControl({ onConfigSync }) {
 
         // Bubble the full config up to App so TapControl can use it
         if (onConfigSync) {
-          onConfigSync({
+          const synced = {
             schedule_enabled: schEn,
             start_time: timeStr,
             front_enabled: tapsData['front-tap']?.enabled ?? false,
@@ -85,7 +88,10 @@ function MotorControl({ onConfigSync }) {
             down_enabled:  tapsData['down-tap']?.enabled  ?? false,
             down_timer:    tapsData['down-tap']?.timer    ?? 900000,
             taps_order:    JSON.stringify(order),
-          })
+          }
+          // Cache it so toggle/time handlers can publish the full config
+          fullConfigRef.current = synced
+          onConfigSync(synced)
         }
       }
 
@@ -116,27 +122,33 @@ function MotorControl({ onConfigSync }) {
   function handleMotorChange(isOn) {
     setMotorOn(isOn)
     if (isOn) {
-      // ON: first send current config so ESP32 has latest, then start
-      publish(TOPIC_CMD, 'GET_CFG') // make sure ESP has latest before ON
+      // ON: send full current config first so ESP32 has latest, then start
+      publishFullConfig(publish, {
+        ...(fullConfigRef.current ?? {}),
+        schedule_enabled: scheduleEnabled,
+        start_time: startTime,
+      })
       setTimeout(() => publish(TOPIC_CMD, 'ON'), 300)
     } else {
       publish(TOPIC_CMD, 'OFF')
     }
   }
 
-  // ── Schedule toggle — publish CFG directly, no DB ──
+  // ── Schedule toggle — publish full CFG, no DB ──
   function handleToggle(isEnabled) {
     setScheduleEnabled(isEnabled)
     publishFullConfig(publish, {
+      ...(fullConfigRef.current ?? {}),
       schedule_enabled: isEnabled,
       start_time: startTime,
     })
   }
 
-  // ── Time change — publish CFG directly, no DB ──
+  // ── Time change — publish full CFG, no DB ──
   function handleTimeChange(timeStr) {
     setStartTime(timeStr)
     publishFullConfig(publish, {
+      ...(fullConfigRef.current ?? {}),
       schedule_enabled: scheduleEnabled,
       start_time: timeStr,
     })

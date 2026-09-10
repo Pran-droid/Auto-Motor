@@ -214,8 +214,10 @@ function EspStatusGear({ status = 'idle' }) {
       if (payload === 'Sequence Started') setIsRunning(true)
       else if (payload.startsWith('Aborted:')) setIsRunning(false)
       else if (payload.startsWith('CFG_SYNC:')) {
-         if (payload.endsWith(':1')) setIsRunning(true)
-         if (payload.endsWith(':0')) setIsRunning(false)
+        const parts = payload.split(':')
+        const runningFlag = parts[parts.length - 1]
+        if (runningFlag === '1') setIsRunning(true)
+        else if (runningFlag === '0') setIsRunning(false)
       }
     })
     

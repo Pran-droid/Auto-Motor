@@ -189,7 +189,7 @@ function TapControl({ initialConfig }) {
   }
 
   function openTimerSetter(tapId, label) {
-    setPopup({ open: true, title: `${label} Timer`, tapId })
+    setPopup({ open: true, title: `${label} Timer`, tapId, currentMs: timers[tapId] })
   }
 
   function handleTimerSet(ms) {
@@ -235,6 +235,7 @@ function TapControl({ initialConfig }) {
       <TimerSetterPopup
         open={popup.open}
         title={popup.title}
+        currentMs={popup.currentMs}
         onClose={() => setPopup(p => ({ ...p, open: false }))}
         onSet={handleTimerSet}
       />
