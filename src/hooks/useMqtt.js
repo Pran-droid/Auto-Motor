@@ -16,7 +16,8 @@ export function useMqtt() {
   const [status,      setStatus]      = useState('idle')      // idle | connecting | connected | error
   const [espStatus,   setEspStatus]   = useState('idle')      // idle | connected | error
   const [lastMessage, setLastMessage] = useState(null)         // { topic, payload }
-  const clientRef    = useRef(null)
+  const clientRef       = useRef(null)
+  const offlineTimerRef  = useRef(null)  // fallback timer ref
   const handlersRef  = useRef({})     // topic → [callback] map
 
   useEffect(() => {
@@ -40,6 +41,17 @@ export function useMqtt() {
         Object.keys(handlersRef.current).forEach(topic => {
           c.subscribe(topic)
         })
+        // Start a 10-second fallback: if no retained LWT arrives, assume ESP32 is offline
+        clearTimeout(offlineTimerRef.current)
+        offlineTimerRef.current = setTimeout(() => {
+          setEspStatus(prev => {
+            if (prev === 'idle') {
+              console.warn('[MQTT] No LWT received in 10s — assuming ESP32 offline')
+              return 'error'
+            }
+            return prev  // already got a real signal, don't override it
+          })
+        }, 10000)
       })
 
       c.on('reconnect', () => {
@@ -65,6 +77,8 @@ export function useMqtt() {
         console.log(`[MQTT] \u2190 ${topic}: ${payload}`)
         // 1. LWT retained message \u2014 definitive online/offline signal
         if (topic === TOPIC_LWT) {
+          // Cancel the fallback timer — we got a definitive retained signal
+          clearTimeout(offlineTimerRef.current)
           setEspStatus(payload === 'Online' ? 'connected' : 'error')
         }
         // 2. Any response from ESP32 proves it is online (covers pre-LWT firmware)

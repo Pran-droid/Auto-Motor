@@ -29,7 +29,7 @@ const INITIAL_TAPS = [
   { id: 'down-tap', label: 'Down', timerClass: 'flip-timer-down', switchId: 'down-tap-switch' },
 ]
 
-function TapControl({ initialConfig }) {
+function TapControl({ initialConfig, onChange }) {
   // Ordered list of tap definitions — reordered on drag end
   const [taps, setTaps] = useState(INITIAL_TAPS)
 
@@ -150,17 +150,19 @@ function TapControl({ initialConfig }) {
     }
   }, [initialConfig])
 
-  // ── V2: Save config by publishing CFG: to MQTT — ESP32 saves to flash ──
+  // ── V2: Save config by notifying App to mark dirty ──
   function saveTapsConfig(newSwitches, currentTaps = taps, currentTimers = timers) {
-    publishFullConfig(publish, {
-      front_enabled: newSwitches['front-tap'],
-      front_timer:   currentTimers['front-tap'],
-      back_enabled:  newSwitches['back-tap'],
-      back_timer:    currentTimers['back-tap'],
-      down_enabled:  newSwitches['down-tap'],
-      down_timer:    currentTimers['down-tap'],
-      taps_order:    JSON.stringify(currentTaps.map(t => t.id)),
-    })
+    if (onChange) {
+      onChange({
+        front_enabled: newSwitches['front-tap'],
+        front_timer:   currentTimers['front-tap'],
+        back_enabled:  newSwitches['back-tap'],
+        back_timer:    currentTimers['back-tap'],
+        down_enabled:  newSwitches['down-tap'],
+        down_timer:    currentTimers['down-tap'],
+        taps_order:    JSON.stringify(currentTaps.map(t => t.id)),
+      })
+    }
   }
 
   // ── @dnd-kit sensors ──

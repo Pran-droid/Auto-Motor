@@ -11,7 +11,7 @@ import { publishFullConfig } from '../../utils/configBuilder'
 const TOPIC_CMD    = 'home/servo/command'
 const TOPIC_STATUS = 'home/servo/status'
 
-function MotorControl({ onConfigSync }) {
+function MotorControl({ onConfigSync, onChange }) {
   const [motorOn, setMotorOn] = useState(false)
   const [scheduleEnabled, setScheduleEnabled] = useState(false)
   const [startTime, setStartTime] = useState('08:00 AM')
@@ -56,7 +56,7 @@ function MotorControl({ onConfigSync }) {
         // tap2: pin=restParts[5], en=restParts[6], ms=restParts[7]
         // tap3: pin=restParts[8], en=restParts[9], ms=restParts[10]
         // order = restParts[11] (e.g. "front-tap,back-tap,down-tap")
-        const pinMap   = { '8': 'front-tap', '4': 'back-tap', '0': 'down-tap' }
+        const pinMap   = { '4': 'front-tap', '8': 'back-tap', '0': 'down-tap' }
         const tapsData = {}
         for (let i = 0; i < 3; i++) {
           const pin = restParts[2 + i * 3]
@@ -72,9 +72,8 @@ function MotorControl({ onConfigSync }) {
 
         setScheduleEnabled(schEn)
         setStartTime(timeStr)
-        if (isRunning) {
-          setMotorOn(true)
-        }
+        // Always sync motor switch state with ESP32's reported running state
+        setMotorOn(isRunning)
 
         // Bubble the full config up to App so TapControl can use it
         if (onConfigSync) {
@@ -122,36 +121,26 @@ function MotorControl({ onConfigSync }) {
   function handleMotorChange(isOn) {
     setMotorOn(isOn)
     if (isOn) {
-      // ON: send full current config first so ESP32 has latest, then start
-      publishFullConfig(publish, {
-        ...(fullConfigRef.current ?? {}),
-        schedule_enabled: scheduleEnabled,
-        start_time: startTime,
-      })
-      setTimeout(() => publish(TOPIC_CMD, 'ON'), 300)
+      publish(TOPIC_CMD, 'ON')
     } else {
       publish(TOPIC_CMD, 'OFF')
     }
   }
 
-  // ── Schedule toggle — publish full CFG, no DB ──
+  // ── Schedule toggle — mark as dirty ──
   function handleToggle(isEnabled) {
     setScheduleEnabled(isEnabled)
-    publishFullConfig(publish, {
-      ...(fullConfigRef.current ?? {}),
-      schedule_enabled: isEnabled,
-      start_time: startTime,
-    })
+    if (onChange) {
+      onChange({ schedule_enabled: isEnabled, start_time: startTime })
+    }
   }
 
-  // ── Time change — publish full CFG, no DB ──
+  // ── Time change — mark as dirty ──
   function handleTimeChange(timeStr) {
     setStartTime(timeStr)
-    publishFullConfig(publish, {
-      ...(fullConfigRef.current ?? {}),
-      schedule_enabled: scheduleEnabled,
-      start_time: timeStr,
-    })
+    if (onChange) {
+      onChange({ schedule_enabled: scheduleEnabled, start_time: timeStr })
+    }
   }
 
   return (

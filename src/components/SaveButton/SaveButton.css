@@ -1,0 +1,62 @@
+.save-button {
+  font-family: inherit;
+  font-size: 16px;
+  background: #212121;
+  color: white;
+  fill: rgb(155, 153, 153);
+  padding: 0.7em 1em;
+  padding-left: 0.9em;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  border: none;
+  border-radius: 15px;
+  font-weight: 900;
+  margin: 20px auto; /* center horizontally, add space */
+  transition: all 0.3s ease-in-out;
+  opacity: 0.5; /* disabled state by default */
+  pointer-events: none;
+}
+
+.save-button.dirty {
+  background: #4caf50; /* Green when changes exist */
+  opacity: 1;
+  pointer-events: auto;
+  fill: white;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+}
+
+.save-button span {
+  display: block;
+  margin-left: 0.3em;
+  transition: all 0.3s ease-in-out;
+}
+
+.save-button svg {
+  display: block;
+  transform-origin: center center;
+  transition: transform 0.3s ease-in-out;
+}
+
+.save-button.dirty:hover {
+  background: #45a049;
+}
+
+.save-button.dirty:hover .svg-wrapper {
+  transform: scale(1.25);
+  transition: 0.5s linear;
+}
+
+.save-button.dirty:hover svg {
+  transform: translateX(1.2em) scale(1.1);
+  fill: #fff;
+}
+
+.save-button.dirty:hover span {
+  opacity: 0;
+  transition: 0.5s linear;
+}
+
+.save-button:active {
+  transform: scale(0.95);
+}
