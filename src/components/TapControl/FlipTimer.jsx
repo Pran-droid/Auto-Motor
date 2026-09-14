@@ -32,41 +32,67 @@ const FlipTimer = forwardRef(function FlipTimer({ sectionClass, label, onTimerCl
 
     function buildFlap(el, val) {
       el.dataset.val = val
-      el.innerHTML =
-        '<div class="cdt-flp__card cdt-flp__top"><span>'    + val + '</span></div>' +
-        '<div class="cdt-flp__card cdt-flp__bottom"><span>' + val + '</span></div>' +
-        '<div class="cdt-flp__flip-top"><span>'             + val + '</span></div>' +
-        '<div class="cdt-flp__flip-bottom"><span>'          + val + '</span></div>'
+      let html = ''
+      
+      // Static bottom base card
+      html += `
+        <div class="new-flp-base-bottom">
+           <span>${val}</span>
+        </div>
+      `
+      
+      for (let i = 0; i <= 9; i++) {
+        const isCurrent = (i === parseInt(val, 10))
+        html += `
+          <div class="new-flp-num ${isCurrent ? 'is-top' : ''}" data-num="${i}">
+             <div class="new-flp-card new-flp-front-top"><span>${i}</span></div>
+             <div class="new-flp-card new-flp-back-bottom"><span>${i}</span></div>
+          </div>
+        `
+      }
+      el.innerHTML = html
     }
 
-    function setFlap(el, next) {
+    function setFlap(el, nextVal, noAnim = false) {
       if (!el) return
-      const cur = el.dataset.val
-      if (cur === next) return
+      const curVal = el.dataset.val
+      if (curVal === nextVal) return
       
-      // Clear any pending animation timeout
+      const curCard = el.querySelector(`.new-flp-num[data-num="${curVal}"]`)
+      const nextCard = el.querySelector(`.new-flp-num[data-num="${nextVal}"]`)
+      const baseSpan = el.querySelector('.new-flp-base-bottom span')
+      
+      if (!curCard || !nextCard || !baseSpan) return
+      
+      el.dataset.val = nextVal
+      
       if (el.dataset.timeoutId) {
         clearTimeout(Number(el.dataset.timeoutId))
-        // Instantly force previous animation to complete state
-        el.querySelector('.cdt-flp__bottom span').textContent = cur
+        baseSpan.textContent = curVal
+      }
+      
+      el.querySelectorAll('.new-flp-num').forEach(node => {
+        node.classList.remove('flip-go', 'is-top')
+      })
+      
+      nextCard.classList.add('is-top')
+      
+      if (noAnim) {
+        baseSpan.textContent = nextVal
+        return
       }
 
-      el.querySelector('.cdt-flp__top span').textContent         = next
-      el.querySelector('.cdt-flp__bottom span').textContent      = cur
-      el.querySelector('.cdt-flp__flip-top span').textContent    = cur
-      el.querySelector('.cdt-flp__flip-bottom span').textContent = next
+      curCard.querySelector('.new-flp-back-bottom span').textContent = nextVal
       
-      // Update data immediately so rapid calls see the target state
-      el.dataset.val = next
-      
-      el.classList.remove('cdt-flp--go')
-      void el.offsetWidth
-      el.classList.add('cdt-flp--go')
+      // Trigger animation
+      void curCard.offsetWidth // force reflow
+      curCard.classList.add('flip-go')
       
       const tId = setTimeout(() => {
-        el.querySelector('.cdt-flp__bottom span').textContent = next
+        curCard.classList.remove('flip-go')
+        baseSpan.textContent = nextVal
         el.dataset.timeoutId = ''
-      }, 600)
+      }, 500)
       el.dataset.timeoutId = tId
     }
 
@@ -93,8 +119,8 @@ const FlipTimer = forwardRef(function FlipTimer({ sectionClass, label, onTimerCl
     function renderStatic(ms) {
       const m = pad(Math.floor((ms % 3600000) / 60000))
       const s = pad(Math.floor((ms % 60000)  / 1000))
-      setFlap(flaps.m0, m[0]); setFlap(flaps.m1, m[1])
-      setFlap(flaps.s0, s[0]); setFlap(flaps.s1, s[1])
+      setFlap(flaps.m0, m[0], true); setFlap(flaps.m1, m[1], true)
+      setFlap(flaps.s0, s[0], true); setFlap(flaps.s1, s[1], true)
     }
 
     function set(ms) {
@@ -130,21 +156,21 @@ const FlipTimer = forwardRef(function FlipTimer({ sectionClass, label, onTimerCl
     <div className="flip-main-timer" onClick={onTimerClick}>
       <h4>{label}</h4>
       <section className={sectionClass} ref={sectionRef}>
-        <div className="cdt-flp__clock" role="timer" aria-live="off">
-          <div className="cdt-flp__group">
-            <div className="cdt-flp__digits">
-              <div className="cdt-flp__flap" data-flap="m0"></div>
-              <div className="cdt-flp__flap" data-flap="m1"></div>
+        <div className="new-flp-clock" role="timer" aria-live="off">
+          <div className="new-flp-group">
+            <div className="new-flp-digits">
+              <div className="new-flp-digit" data-flap="m0"></div>
+              <div className="new-flp-digit" data-flap="m1"></div>
             </div>
-            <span className="cdt-flp__glabel">Min</span>
+            <span className="new-flp-glabel">Min</span>
           </div>
-          <span className="cdt-flp__colon" aria-hidden="true">:</span>
-          <div className="cdt-flp__group">
-            <div className="cdt-flp__digits">
-              <div className="cdt-flp__flap" data-flap="s0"></div>
-              <div className="cdt-flp__flap" data-flap="s1"></div>
+          <span className="new-flp-colon" aria-hidden="true">:</span>
+          <div className="new-flp-group">
+            <div className="new-flp-digits">
+              <div className="new-flp-digit" data-flap="s0"></div>
+              <div className="new-flp-digit" data-flap="s1"></div>
             </div>
-            <span className="cdt-flp__glabel">Sec</span>
+            <span className="new-flp-glabel">Sec</span>
           </div>
         </div>
       </section>

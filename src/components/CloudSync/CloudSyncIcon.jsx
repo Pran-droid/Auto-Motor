@@ -49,12 +49,18 @@ const StyledWrapper = styled.div`
     height: 40px;
   }
 
-  .loader #cloud rect {
-    fill: var(--cloud-color);
-    transition: fill 0.5s;
+  .loader #cloud #lines line {
+    stroke: var(--cloud-color);
+    transition: stroke 0.5s;
+    stroke-width: 5;
+    transform-origin: 50% 50%;
+    rotate: -65deg;
+    ${({ $status }) => $status === 'connected' || $status === 'connecting'
+      ? css`animation: ${lines} calc(var(--time-animation) / 1.33) linear infinite;`
+      : 'animation: none;'}
   }
 
-  .loader #cloud g:nth-child(3) {
+  .loader #cloud g.inner-status {
     transform-origin: 50% 72.8938%;
     fill: var(--arrows-color);
     filter: drop-shadow(0 0 8px black);
@@ -74,15 +80,6 @@ const StyledWrapper = styled.div`
   }
   .loader #shapes g g circle:nth-child(3) {
     animation-delay: calc((var(--time-animation) * 2) / -1.5);
-  }
-
-  .loader svg #lines g line {
-    stroke-width: 5;
-    transform-origin: 50% 50%;
-    rotate: -65deg;
-    ${({ $status }) => $status === 'connected' || $status === 'connecting'
-      ? css`animation: ${lines} calc(var(--time-animation) / 1.33) linear infinite;`
-      : 'animation: none;'}
   }
 `
 
@@ -108,18 +105,20 @@ function CloudSyncIcon({ status = 'idle' }) {
                 </g>
               </g>
             </mask>
-            <mask id="clipping" clipPathUnits="userSpaceOnUse">
-              <g id="lines" filter="url(#roundness)">
-                <g mask="url(#shapes)" stroke="white">
-                  {[-40,-31,-22,-13,-4,5,14,23,32,41,50,59,68,77,86,95,104,113,122,131,140].map(y => (
-                    <line key={y} x1={-50} y1={y} x2={150} y2={y} />
-                  ))}
-                </g>
-              </g>
-            </mask>
           </defs>
-          <rect x={0} y={0} width={100} height={100} rx={0} ry={0} mask="url(#clipping)" />
-          <g>
+          
+          {/* iOS Safari FIX: Filter applied directly to group, mask applied to lines. No nested filters inside masks. */}
+          <g filter="url(#roundness)">
+            <g mask="url(#shapes)">
+              <g id="lines">
+                {[-40,-31,-22,-13,-4,5,14,23,32,41,50,59,68,77,86,95,104,113,122,131,140].map(y => (
+                  <line key={y} x1={-50} y1={y} x2={150} y2={y} />
+                ))}
+              </g>
+            </g>
+          </g>
+
+          <g className="inner-status">
             {status === 'connected' ? (
               /* Tick / checkmark — centered in the cloud */
               <path
