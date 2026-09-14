@@ -11,15 +11,15 @@
 export function publishFullConfig(publish, config = {}) {
   try {
     const {
-      front_enabled    = false,
-      front_timer      = 900000,
-      back_enabled     = false,
-      back_timer       = 900000,
-      down_enabled     = false,
-      down_timer       = 900000,
-      taps_order       = '["front-tap","back-tap","down-tap"]',
+      front_enabled = false,
+      front_timer = 900000,
+      back_enabled = false,
+      back_timer = 900000,
+      down_enabled = false,
+      down_timer = 900000,
+      taps_order = '["front-tap","back-tap","down-tap"]',
       schedule_enabled = false,
-      start_time       = '08:00 AM',
+      start_time = '08:00 AM',
     } = config
 
     // Parse "HH:MM AM/PM" into 24h hour + minute
@@ -42,9 +42,9 @@ export function publishFullConfig(publish, config = {}) {
       }
     }
 
-    const pinMap    = { 'front-tap': 4, 'back-tap': 8, 'down-tap': 0 }
+    const pinMap    = { 'front-tap': 4, 'back-tap': 7, 'down-tap': 0 }
     const enableMap = { 'front-tap': front_enabled, 'back-tap': back_enabled, 'down-tap': down_enabled }
-    const timerMap  = { 'front-tap': front_timer,   'back-tap': back_timer,   'down-tap': down_timer  }
+    const timerMap = { 'front-tap': front_timer, 'back-tap': back_timer, 'down-tap': down_timer }
 
     const tapParts = order.map(id =>
       `${pinMap[id]}:${enableMap[id] ? 1 : 0}:${timerMap[id]}`

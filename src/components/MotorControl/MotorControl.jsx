@@ -56,7 +56,7 @@ function MotorControl({ onConfigSync, onChange }) {
         // tap2: pin=restParts[5], en=restParts[6], ms=restParts[7]
         // tap3: pin=restParts[8], en=restParts[9], ms=restParts[10]
         // order = restParts[11] (e.g. "front-tap,back-tap,down-tap")
-        const pinMap   = { '4': 'front-tap', '8': 'back-tap', '0': 'down-tap' }
+        const pinMap   = { '4': 'front-tap', '7': 'back-tap', '0': 'down-tap' }
         const tapsData = {}
         for (let i = 0; i < 3; i++) {
           const pin = restParts[2 + i * 3]
