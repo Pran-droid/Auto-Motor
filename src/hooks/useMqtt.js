@@ -6,9 +6,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import mqtt from 'mqtt'
 
-const MQTT_HOST   = 'wss://3ced25e5a1194f8d822b5903ac4fa001.s1.eu.hivemq.cloud:8884/mqtt'
-const MQTT_USER   = 'Pran'
-const MQTT_PASS   = 'automotor'
+const MQTT_HOST = `wss://${import.meta.env.VITE_MQTT_HOST}:${import.meta.env.VITE_MQTT_PORT || 8084}/mqtt`;
+const MQTT_USER = import.meta.env.VITE_MQTT_USERNAME;
+const MQTT_PASS = import.meta.env.VITE_MQTT_PASSWORD;
 const CLIENT_ID   = `web-${Math.random().toString(16).slice(2, 8)}`
 const TOPIC_LWT   = 'home/servo/lwt'  // ESP32 Last Will and Testament topic
 
@@ -135,3 +135,5 @@ export function useMqtt() {
 
   return { status, espStatus, setEspStatus, publish, subscribe, lastMessage }
 }
+
+
