@@ -1363,42 +1363,44 @@ h4 {
     .tap-switch-container {
         transform: scale(0.85);
     }
-}/ *   E d i t   M o d e   S t y l e s   * / 
- . e d i t - m o d e - d i s a b l e d   { 
-         o p a c i t y :   0 . 3   ! i m p o r t a n t ; 
-         p o i n t e r - e v e n t s :   n o n e   ! i m p o r t a n t ; 
-         t r a n s i t i o n :   o p a c i t y   0 . 3 s   e a s e ; 
- } 
- 
- . t a p - i m a g e - e d i t - o n   { 
-         b o x - s h a d o w :   0   0   1 5 p x   5 p x   # 0 0 f f 0 0   ! i m p o r t a n t ; 
-         b o r d e r - r a d i u s :   5 0 % ; 
-         c u r s o r :   p o i n t e r ; 
- } 
- 
- . t a p - i m a g e - e d i t - o f f   { 
-         b o x - s h a d o w :   0   0   1 5 p x   5 p x   # f f 0 0 0 0   ! i m p o r t a n t ; 
-         b o r d e r - r a d i u s :   5 0 % ; 
-         c u r s o r :   p o i n t e r ; 
- } 
- 
- . t a p - c o n t r o l - h e a d e r   { 
-         c u r s o r :   p o i n t e r ; 
-         t r a n s i t i o n :   c o l o r   0 . 3 s   e a s e ,   t e x t - s h a d o w   0 . 3 s   e a s e ; 
-         d i s p l a y :   i n l i n e - b l o c k ; 
-         p a d d i n g :   4 p x   8 p x ; 
-         b o r d e r - r a d i u s :   4 p x ; 
- } 
- 
- . t a p - c o n t r o l - h e a d e r : h o v e r   { 
-         c o l o r :   # 4 C A F 5 0 ; 
-         b a c k g r o u n d - c o l o r :   r g b a ( 2 5 5 ,   2 5 5 ,   2 5 5 ,   0 . 0 5 ) ; 
- } 
- 
- . t a p - c o n t r o l - h e a d e r . e d i t i n g   { 
-         c o l o r :   # 4 C A F 5 0 ; 
-         t e x t - s h a d o w :   0   0   5 p x   # 4 C A F 5 0 ; 
-         b a c k g r o u n d - c o l o r :   r g b a ( 7 6 ,   1 7 5 ,   8 0 ,   0 . 1 ) ; 
- }  
- 
+}
+
+/* Edit Mode Styles */
+.edit-mode-disabled {
+    opacity: 0.3 !important;
+    pointer-events: none !important;
+    transition: opacity 0.3s ease;
+}
+
+.tap-image-edit-on {
+    box-shadow: 0 0 15px 5px #00ff00 !important;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.tap-image-edit-off {
+    box-shadow: 0 0 15px 5px #ff0000 !important;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.tap-control-header {
+    cursor: pointer;
+    transition: color 0.3s ease, text-shadow 0.3s ease;
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.tap-control-header:hover {
+    color: #4CAF50;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.tap-control-header.editing {
+    color: #4CAF50;
+    text-shadow: 0 0 5px #4CAF50;
+    background-color: rgba(76, 175, 80, 0.1);
+}
+
 .glow-green-text { color: #4ade80 !important; text-shadow: 0 0 10px rgba(74, 222, 128, 0.5); }
