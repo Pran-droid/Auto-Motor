@@ -44,10 +44,11 @@ export function publishFullConfig(publish, config = {}) {
 
     const pinMap    = { 'front-tap': 4, 'back-tap': 7, 'down-tap': 0 }
     const enableMap = { 'front-tap': front_enabled, 'back-tap': back_enabled, 'down-tap': down_enabled }
-    const timerMap = { 'front-tap': front_timer, 'back-tap': back_timer, 'down-tap': down_timer }
+    const timerMap  = { 'front-tap': front_timer, 'back-tap': back_timer, 'down-tap': down_timer }
+    const defMap    = { 'front-tap': config.front_def ?? false, 'back-tap': config.back_def ?? false, 'down-tap': config.down_def ?? true }
 
     const tapParts = order.map(id =>
-      `${pinMap[id]}:${enableMap[id] ? 1 : 0}:${timerMap[id]}`
+      `${pinMap[id]}:${enableMap[id] ? 1 : 0}:${timerMap[id]}:${defMap[id] ? 1 : 0}`
     ).join(':')
 
     const finalPayload = `CFG:${tapParts}:${sch}:${h}:${m}`

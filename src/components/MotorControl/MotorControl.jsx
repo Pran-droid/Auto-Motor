@@ -11,7 +11,7 @@ import { publishFullConfig } from '../../utils/configBuilder'
 const TOPIC_CMD    = 'home/servo/command'
 const TOPIC_STATUS = 'home/servo/status'
 
-function MotorControl({ onConfigSync, onChange }) {
+function MotorControl({ onConfigSync, onChange, editDefaultsMode }) {
   const [motorOn, setMotorOn] = useState(false)
   const [scheduleEnabled, setScheduleEnabled] = useState(false)
   const [startTime, setStartTime] = useState('08:00 AM')
@@ -52,23 +52,24 @@ function MotorControl({ onConfigSync, onChange }) {
         const timeStr = restParts[0] + ':' + restParts[1]  // "08:00 AM"
 
         // tap data starts at restParts[2]
-        // tap1: pin=restParts[2], en=restParts[3], ms=restParts[4]
-        // tap2: pin=restParts[5], en=restParts[6], ms=restParts[7]
-        // tap3: pin=restParts[8], en=restParts[9], ms=restParts[10]
-        // order = restParts[11] (e.g. "front-tap,back-tap,down-tap")
+        // tap1: pin=restParts[2], en=restParts[3], ms=restParts[4], def=restParts[5]
+        // tap2: pin=restParts[6], en=restParts[7], ms=restParts[8], def=restParts[9]
+        // tap3: pin=restParts[10], en=restParts[11], ms=restParts[12], def=restParts[13]
+        // order = restParts[14] (e.g. "front-tap,back-tap,down-tap")
         const pinMap   = { '4': 'front-tap', '7': 'back-tap', '0': 'down-tap' }
         const tapsData = {}
         for (let i = 0; i < 3; i++) {
-          const pin = restParts[2 + i * 3]
-          const en  = restParts[3 + i * 3] === '1'
-          const ms  = parseInt(restParts[4 + i * 3], 10)
+          const pin = restParts[2 + i * 4]
+          const en  = restParts[3 + i * 4] === '1'
+          const ms  = parseInt(restParts[4 + i * 4], 10)
+          const def = restParts[5 + i * 4] === '1'
           const id  = pinMap[pin]
-          if (id) tapsData[id] = { enabled: en, timer: ms }
+          if (id) tapsData[id] = { enabled: en, timer: ms, def }
         }
-        const orderStr = restParts[11] || 'front-tap,back-tap,down-tap'
+        const orderStr = restParts[14] || 'front-tap,back-tap,down-tap'
         const order    = orderStr.split(',').map(s => s.trim())
         
-        const isRunning = restParts[12] === '1'
+        const isRunning = restParts[15] === '1'
 
         setScheduleEnabled(schEn)
         setStartTime(timeStr)
@@ -82,10 +83,13 @@ function MotorControl({ onConfigSync, onChange }) {
             start_time: timeStr,
             front_enabled: tapsData['front-tap']?.enabled ?? false,
             front_timer:   tapsData['front-tap']?.timer   ?? 900000,
+            front_def:     tapsData['front-tap']?.def     ?? false,
             back_enabled:  tapsData['back-tap']?.enabled  ?? false,
             back_timer:    tapsData['back-tap']?.timer    ?? 900000,
+            back_def:      tapsData['back-tap']?.def      ?? false,
             down_enabled:  tapsData['down-tap']?.enabled  ?? false,
             down_timer:    tapsData['down-tap']?.timer    ?? 900000,
+            down_def:      tapsData['down-tap']?.def      ?? true,
             taps_order:    JSON.stringify(order),
           }
           // Cache it so toggle/time handlers can publish the full config
@@ -144,7 +148,7 @@ function MotorControl({ onConfigSync, onChange }) {
   }
 
   return (
-    <div id="motor-main-container">
+    <div id="motor-main-container" style={editDefaultsMode ? { opacity: 0.3, pointerEvents: 'none' } : {}}>
       <h3>Motor Control</h3>
       <div id="motor-switch-container">
         <RockerSwitch checked={motorOn} onChange={handleMotorChange} />

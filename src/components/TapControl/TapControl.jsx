@@ -29,9 +29,16 @@ const INITIAL_TAPS = [
   { id: 'down-tap', label: 'Down', timerClass: 'flip-timer-down', switchId: 'down-tap-switch' },
 ]
 
-function TapControl({ initialConfig, onChange }) {
+function TapControl({ initialConfig, onChange, editDefaultsMode, setEditDefaultsMode }) {
   // Ordered list of tap definitions — reordered on drag end
   const [taps, setTaps] = useState(INITIAL_TAPS)
+
+  // Default ON/OFF state keyed by tap id
+  const [defaults, setDefaults] = useState({
+    'front-tap': false,
+    'back-tap': false,
+    'down-tap': true,
+  })
 
   // Switch on/off state keyed by tap id
   const [switches, setSwitches] = useState({
@@ -129,6 +136,12 @@ function TapControl({ initialConfig, onChange }) {
       'down-tap':  down_enabled  ?? false,
     })
     
+    setDefaults({
+      'front-tap': initialConfig.front_def ?? false,
+      'back-tap':  initialConfig.back_def  ?? false,
+      'down-tap':  initialConfig.down_def  ?? true,
+    })
+    
     setTimers({
       'front-tap': front_timer ?? 900000,
       'back-tap':  back_timer  ?? 900000,
@@ -151,15 +164,18 @@ function TapControl({ initialConfig, onChange }) {
   }, [initialConfig])
 
   // ── V2: Save config by notifying App to mark dirty ──
-  function saveTapsConfig(newSwitches, currentTaps = taps, currentTimers = timers) {
+  function saveTapsConfig(newSwitches, currentTaps = taps, currentTimers = timers, currentDefaults = defaults) {
     if (onChange) {
       onChange({
         front_enabled: newSwitches['front-tap'],
         front_timer:   currentTimers['front-tap'],
+        front_def:     currentDefaults['front-tap'],
         back_enabled:  newSwitches['back-tap'],
         back_timer:    currentTimers['back-tap'],
+        back_def:      currentDefaults['back-tap'],
         down_enabled:  newSwitches['down-tap'],
         down_timer:    currentTimers['down-tap'],
+        down_def:      currentDefaults['down-tap'],
         taps_order:    JSON.stringify(currentTaps.map(t => t.id)),
       })
     }
@@ -186,8 +202,14 @@ function TapControl({ initialConfig, onChange }) {
   function handleSwitchChange(tapId, isOn) {
     const newSwitches = { ...switches, [tapId]: isOn }
     setSwitches(newSwitches)
-    console.log(`${tapId} switch:`, isOn ? 'ON' : 'OFF')
-    saveTapsConfig(newSwitches, taps, timers)
+    saveTapsConfig(newSwitches, taps, timers, defaults)
+  }
+
+  function handleImageClick(tapId) {
+    if (!editDefaultsMode) return
+    const newDefaults = { ...defaults, [tapId]: !defaults[tapId] }
+    setDefaults(newDefaults)
+    saveTapsConfig(switches, taps, timers, newDefaults)
   }
 
   function openTimerSetter(tapId, label) {
@@ -207,7 +229,13 @@ function TapControl({ initialConfig, onChange }) {
 
   return (
     <div id="taps-main-container">
-      <h3>Tap Control</h3>
+      <h3 
+        onClick={() => setEditDefaultsMode(prev => !prev)} 
+        style={{ cursor: 'pointer', transition: 'color 0.3s' }}
+        className={editDefaultsMode ? 'glow-green-text' : ''}
+      >
+        Tap Control 
+      </h3>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -225,6 +253,9 @@ function TapControl({ initialConfig, onChange }) {
                 switchChecked={switches[tap.id]}
                 isActive={activeTapId === tap.id}
                 defaultMs={timers[tap.id]}
+                editDefaultsMode={editDefaultsMode}
+                defaultIsOn={defaults[tap.id]}
+                onImageClick={() => handleImageClick(tap.id)}
                 onSwitchChange={isOn => handleSwitchChange(tap.id, isOn)}
                 onTimerClick={() => openTimerSetter(tap.id, tap.label)}
                 timerRef={el => { timerRefs.current[tap.id] = el }}

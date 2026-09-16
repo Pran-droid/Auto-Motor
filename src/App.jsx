@@ -21,6 +21,9 @@ function App() {
   // Toast state
   const [showToast, setShowToast] = useState(false)
   
+  // Edit Defaults Mode
+  const [editDefaultsMode, setEditDefaultsMode] = useState(false)
+  
   const isDirty = Object.keys(pendingChanges).length > 0
 
   const handleConfigSync = useCallback((config) => {
@@ -42,6 +45,7 @@ function App() {
     if (!espConfig) return
     const finalConfig = { ...espConfig, ...pendingChanges }
     publishFullConfig(mqtt.publish, finalConfig)
+    setEditDefaultsMode(false)
     // We don't clear pendingChanges here immediately; 
     // it will clear when ESP32 replies with CFG_SYNC in handleConfigSync
   }
@@ -62,10 +66,13 @@ function App() {
         <MotorControl 
           onConfigSync={handleConfigSync} 
           onChange={handleLocalChange}
+          editDefaultsMode={editDefaultsMode}
         />
         <TapControl 
           initialConfig={espConfig} 
           onChange={handleLocalChange}
+          editDefaultsMode={editDefaultsMode}
+          setEditDefaultsMode={setEditDefaultsMode}
         />
         
         <SaveButton isDirty={isDirty} onSave={handleSave} />
