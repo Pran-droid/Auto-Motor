@@ -7,7 +7,7 @@
 //   error           → gears fly apart + red tint                 [mimics :active]
 
 import React, { useState, useEffect } from 'react'
-import styled, { keyframes, css } from 'styled-components'
+import styled, { keyframes } from 'styled-components'
 import { useMqttContext } from '../../context/MqttContext'
 
 const rotateGear = keyframes`
@@ -205,12 +205,11 @@ function GearSvg({ className }) {
 }
 
 function EspStatusGear({ status = 'idle' }) {
-  const mqtt = useMqttContext()
+  const { subscribe } = useMqttContext()
   const [isRunning, setIsRunning] = useState(false)
 
   useEffect(() => {
-    if (!mqtt?.subscribe) return
-    const unsubStatus = mqtt.subscribe('home/servo/status', (payload) => {
+    const unsubStatus = subscribe('home/servo/status', (payload) => {
       if (payload === 'Sequence Started') setIsRunning(true)
       else if (payload.startsWith('Aborted:')) setIsRunning(false)
       else if (payload.startsWith('CFG_SYNC:')) {
@@ -221,7 +220,7 @@ function EspStatusGear({ status = 'idle' }) {
       }
     })
     
-    const unsubCmd = mqtt.subscribe('home/servo/command', (payload) => {
+    const unsubCmd = subscribe('home/servo/command', (payload) => {
       if (payload === 'Sequence Complete') setIsRunning(false)
       else if (payload.startsWith('TAP_SYNC:') || payload.startsWith('TAP_START:')) setIsRunning(true)
     })
@@ -230,7 +229,7 @@ function EspStatusGear({ status = 'idle' }) {
       unsubStatus()
       unsubCmd()
     }
-  }, [mqtt])
+  }, [subscribe])
 
   // Map status → wrapper class
   const wrapperClass = [
@@ -239,13 +238,6 @@ function EspStatusGear({ status = 'idle' }) {
     status === 'error'     ? 'is-error'     : '',
     isRunning              ? 'is-running'   : '',
   ].filter(Boolean).join(' ')
-
-  const label = {
-    idle:       '–',
-    connecting: '…',
-    connected:  'Online',
-    error:      'Offline',
-  }[status] ?? '–'
 
   return (
     <StyledWrapper>

@@ -11,7 +11,6 @@
 //   timerRef        – ref callback to expose the FlipTimer imperative handle
 
 import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import FlipTimer from './FlipTimer'
 import CosmicSwitch from './CosmicSwitch'
 

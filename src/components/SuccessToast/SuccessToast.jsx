@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './SuccessToast.css';
 
 export default function SuccessToast({ show, onClose, message, subText }) {
@@ -6,27 +6,39 @@ export default function SuccessToast({ show, onClose, message, subText }) {
   // 'animating' controls whether we play the exit (slide-down) animation
   const [visible, setVisible]     = useState(false);
   const [animating, setAnimating] = useState(false); // true = sliding out
-
-  useEffect(() => {
-    if (show) {
-      // Mount the element and let it slide UP
-      setVisible(true);
-      setAnimating(false);
-
-      // Auto-dismiss after 3 seconds
-      const autoClose = setTimeout(() => startExit(), 3000);
-      return () => clearTimeout(autoClose);
-    }
-  }, [show]);
+  const autoCloseRef = useRef(null);
+  const exitRef      = useRef(null);
+  // Latest onClose without making it an effect dependency
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   function startExit() {
+    if (exitRef.current) return; // already exiting
+    clearTimeout(autoCloseRef.current);
     // Trigger the slide-down CSS class, then actually unmount after animation
     setAnimating(true);
-    setTimeout(() => {
+    exitRef.current = setTimeout(() => {
+      exitRef.current = null;
       setVisible(false);
-      onClose();
+      onCloseRef.current();
     }, 350); // matches the CSS animation duration
   }
+
+  useEffect(() => {
+    if (!show) return;
+    // Mount the element and let it slide UP
+    clearTimeout(exitRef.current);
+    exitRef.current = null;
+    setVisible(true);
+    setAnimating(false);
+
+    // Auto-dismiss after 3 seconds
+    autoCloseRef.current = setTimeout(startExit, 3000);
+    return () => clearTimeout(autoCloseRef.current);
+  }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear any pending exit timer on unmount
+  useEffect(() => () => clearTimeout(exitRef.current), []);
 
   if (!visible) return null;
 

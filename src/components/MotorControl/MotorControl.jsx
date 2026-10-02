@@ -2,22 +2,18 @@
 // Motor on/off + schedule. Loads config from ESP32 flash via MQTT GET_CFG.
 // No Postgres / /api/motor-api calls.
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import RockerSwitch from './RockerSwitch'
 import TimePicker from './TimePicker'
 import { useMqttContext } from '../../context/MqttContext'
-import { publishFullConfig } from '../../utils/configBuilder'
 
 const TOPIC_CMD    = 'home/servo/command'
 const TOPIC_STATUS = 'home/servo/status'
 
-function MotorControl({ onConfigSync, onChange, editDefaultsMode }) {
+function MotorControl({ config, onConfigSync, onChange, editDefaultsMode }) {
   const [motorOn, setMotorOn] = useState(false)
   const [scheduleEnabled, setScheduleEnabled] = useState(false)
   const [startTime, setStartTime] = useState('08:00 AM')
-  // Keep a ref to the latest full config received from ESP32 so we can always
-  // publish a complete CFG: without clobbering tap data (Bug 2 fix)
-  const fullConfigRef = useRef(null)
   const { publish, subscribe, status } = useMqttContext()
 
   // ── Request config from ESP32 once MQTT is connected ──
@@ -26,6 +22,13 @@ function MotorControl({ onConfigSync, onChange, editDefaultsMode }) {
     console.log('[V2] MQTT connected — requesting config from ESP32...')
     publish(TOPIC_CMD, 'GET_CFG')
   }, [status, publish])
+
+  // ── Show schedule from App's view config (ESP32 config + unsaved edits) ──
+  useEffect(() => {
+    if (!config) return
+    setScheduleEnabled(config.schedule_enabled ?? false)
+    setStartTime(config.start_time ?? '08:00 AM')
+  }, [config])
 
   // ── Listen for CFG_SYNC reply from ESP32 ──
   // Format: CFG_SYNC:schEn:HH:MM AM/PM:pin1:en1:ms1:pin2:en2:ms2:pin3:en3:ms3:order
@@ -71,8 +74,8 @@ function MotorControl({ onConfigSync, onChange, editDefaultsMode }) {
         
         const isRunning = restParts[15] === '1'
 
-        setScheduleEnabled(schEn)
-        setStartTime(timeStr)
+        // Schedule fields reach the UI via the `config` prop, so a background
+        // sync doesn't overwrite unsaved edits.
         // Always sync motor switch state with ESP32's reported running state
         setMotorOn(isRunning)
 
@@ -92,8 +95,6 @@ function MotorControl({ onConfigSync, onChange, editDefaultsMode }) {
             down_def:      tapsData['down-tap']?.def      ?? true,
             taps_order:    JSON.stringify(order),
           }
-          // Cache it so toggle/time handlers can publish the full config
-          fullConfigRef.current = synced
           onConfigSync(synced)
         }
       }
@@ -123,12 +124,8 @@ function MotorControl({ onConfigSync, onChange, editDefaultsMode }) {
 
   // ── Manual motor switch ──
   function handleMotorChange(isOn) {
-    setMotorOn(isOn)
-    if (isOn) {
-      publish(TOPIC_CMD, 'ON')
-    } else {
-      publish(TOPIC_CMD, 'OFF')
-    }
+    // Only flip the switch if the command actually went out
+    if (publish(TOPIC_CMD, isOn ? 'ON' : 'OFF')) setMotorOn(isOn)
   }
 
   // ── Schedule toggle — mark as dirty ──

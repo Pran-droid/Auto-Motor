@@ -21,7 +21,6 @@ import {
 import TapCard from './TapCard'
 import TimerSetterPopup from './TimerSetterPopup'
 import { useMqttContext } from '../../context/MqttContext'
-import { publishFullConfig } from '../../utils/configBuilder'
 // Initial tap definitions — the order of this array controls render order
 const INITIAL_TAPS = [
   { id: 'front-tap', label: 'Front', timerClass: 'flip-timer-front', switchId: 'front-tap-switch' },
@@ -67,7 +66,7 @@ function TapControl({ initialConfig, onChange, editDefaultsMode, setEditDefaults
     'down-tap': null,
   })
 
-  const { publish, subscribe } = useMqttContext()
+  const { subscribe } = useMqttContext()
 
   // ── Listen for MQTT messages to control the timers ──
   useEffect(() => {
@@ -101,10 +100,7 @@ function TapControl({ initialConfig, onChange, editDefaultsMode, setEditDefaults
         })
 
         const timerHandle = timerRefs.current[tapId]
-        if (timerHandle) {
-          timerHandle.set(remainingMs)
-          timerHandle.start()
-        }
+        if (timerHandle) timerHandle.sync(remainingMs)
 
       } else if (payload === 'Sequence Complete' || payload === 'OFF') {
         setActiveTapId(null)

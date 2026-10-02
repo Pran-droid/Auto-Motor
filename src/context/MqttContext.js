@@ -1,5 +1,5 @@
 // MqttContext.js
-// Provides the MQTT { status, publish, subscribe, lastMessage } down the tree.
+// Provides the MQTT { status, espStatus, publish, subscribe } down the tree.
 import { createContext, useContext } from 'react'
 
 export const MqttContext = createContext(null)

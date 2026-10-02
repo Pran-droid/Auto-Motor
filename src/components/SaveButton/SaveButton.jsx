@@ -1,12 +1,14 @@
 import React from 'react';
 import './SaveButton.css';
 
-export default function SaveButton({ isDirty, onSave }) {
+export default function SaveButton({ isDirty, canSave = true, onSave }) {
+  const enabled = isDirty && canSave
   return (
     <button 
-      className={`save-button ${isDirty ? 'dirty' : ''}`} 
+      className={`save-button ${enabled ? 'dirty' : ''}`} 
       onClick={onSave}
-      disabled={!isDirty}
+      disabled={!enabled}
+      title={isDirty && !canSave ? 'ESP32 offline — changes will be kept until it reconnects' : undefined}
     >
       <div className="svg-wrapper-1">
         <div className="svg-wrapper">

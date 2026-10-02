@@ -1,9 +1,9 @@
 // useMqtt.js
 // Custom hook that manages the MQTT connection to HiveMQ Cloud.
 // Connects over secure WebSocket (wss://) using the mqtt.js browser client.
-// Returns: { status, espStatus, setEspStatus, publish, subscribe, lastMessage }
+// Returns: { status, espStatus, setEspStatus, publish, subscribe }
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import mqtt from 'mqtt'
 
 const MQTT_HOST = `wss://${import.meta.env.VITE_MQTT_HOST}:${import.meta.env.VITE_MQTT_PORT || 8084}/mqtt`;
@@ -15,7 +15,6 @@ const TOPIC_LWT   = 'home/servo/lwt'  // ESP32 Last Will and Testament topic
 export function useMqtt() {
   const [status,      setStatus]      = useState('idle')      // idle | connecting | connected | error
   const [espStatus,   setEspStatus]   = useState('idle')      // idle | connected | error
-  const [lastMessage, setLastMessage] = useState(null)         // { topic, payload }
   const clientRef       = useRef(null)
   const offlineTimerRef  = useRef(null)  // fallback timer ref
   const handlersRef  = useRef({})     // topic → [callback] map
@@ -90,7 +89,6 @@ export function useMqtt() {
         ) {
           setEspStatus('connected')
         }
-        setLastMessage({ topic, payload })
         const handlers = handlersRef.current[topic] || []
         handlers.forEach(fn => fn(payload, topic))
       })
@@ -106,14 +104,15 @@ export function useMqtt() {
     }
   }, [])
 
-  /** Publish a message to a topic */
+  /** Publish a message to a topic. Returns false if not connected. */
   const publish = useCallback((topic, message) => {
     if (!clientRef.current?.connected) {
       console.warn('[MQTT] publish skipped – not connected')
-      return
+      return false
     }
     clientRef.current.publish(topic, String(message))
     console.log(`[MQTT] → ${topic}: ${message}`)
+    return true
   }, [])
 
   /** Subscribe to a topic and call callback(payload, topic) on each message */
@@ -133,7 +132,10 @@ export function useMqtt() {
     }
   }, [])
 
-  return { status, espStatus, setEspStatus, publish, subscribe, lastMessage }
+  return useMemo(
+    () => ({ status, espStatus, setEspStatus, publish, subscribe }),
+    [status, espStatus, publish, subscribe]
+  )
 }
 
 

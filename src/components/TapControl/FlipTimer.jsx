@@ -2,7 +2,9 @@
 // Flip-clock countdown display.
 // Props:
 //   sectionClass  – CSS class for the <section> (e.g. 'flip-timer-front')
-//   timerRef      – ref that parent exposes (receives { restart })
+//   ref           – imperative handle { set, sync, start, stop, getDurationMs }
+//                   set(ms)   – configured duration (doesn't interrupt a running countdown)
+//                   sync(ms)  – run countdown from ESP32's remaining time (keeps configured duration)
 //   onTimerClick  – called when user clicks the timer area to open setter popup
 
 import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react'
@@ -17,8 +19,11 @@ const FlipTimer = forwardRef(function FlipTimer({ sectionClass, label, onTimerCl
       durationRef.current = ms
       ctrlRef.current?.set(ms) 
     },
+    sync(remainingMs) {
+      ctrlRef.current?.runFrom(remainingMs)
+    },
     start() {
-      ctrlRef.current?.start()
+      ctrlRef.current?.runFrom(durationRef.current)
     },
     stop() {
       ctrlRef.current?.stop()
@@ -124,16 +129,13 @@ const FlipTimer = forwardRef(function FlipTimer({ sectionClass, label, onTimerCl
     }
 
     function set(ms) {
-      if (intervalId) {
-        clearInterval(intervalId)
-        intervalId = null
-      }
-      renderStatic(ms)
+      // While counting down, the new duration shows once the timer stops
+      if (!intervalId) renderStatic(ms)
     }
 
-    function start() {
+    function runFrom(ms) {
       if (intervalId) clearInterval(intervalId)
-      target = Date.now() + durationRef.current
+      target = Date.now() + ms
       render()
       intervalId = setInterval(render, 1000)
     }
@@ -146,7 +148,7 @@ const FlipTimer = forwardRef(function FlipTimer({ sectionClass, label, onTimerCl
       renderStatic(durationRef.current)
     }
 
-    ctrlRef.current = { set, start, stop }
+    ctrlRef.current = { set, runFrom, stop }
     set(defaultMs) // Initialize frozen
 
     return () => { if (intervalId) clearInterval(intervalId) }

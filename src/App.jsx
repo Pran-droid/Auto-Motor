@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import MotorControl from './components/MotorControl/MotorControl'
 import TapControl from './components/TapControl/TapControl'
 import CloudSyncIcon from './components/CloudSync/CloudSyncIcon'
@@ -8,46 +8,58 @@ import SuccessToast from './components/SuccessToast/SuccessToast'
 import { useMqtt } from './hooks/useMqtt'
 import { MqttContext } from './context/MqttContext'
 import { publishFullConfig } from './utils/configBuilder'
-import { useCallback } from 'react'
 
 function App() {
   const mqtt = useMqtt()
   // Populated once ESP32 replies to GET_CFG with CFG_SYNC
   const [espConfig, setEspConfig] = useState(null)
-  
+  // What the UI shows: ESP32 config with any unsaved changes layered on top.
+  // Only recomputed on CFG_SYNC so local edits don't re-trigger child sync effects.
+  const [viewConfig, setViewConfig] = useState(null)
+
   // Track any UI changes that haven't been saved yet
   const [pendingChanges, setPendingChanges] = useState({})
-  
+  const pendingRef = useRef({})
+  // True between publishing CFG: and receiving the ESP32's CFG_SYNC acknowledgement
+  const awaitingAckRef = useRef(false)
+
   // Toast state
   const [showToast, setShowToast] = useState(false)
-  
+
   // Edit Defaults Mode
   const [editDefaultsMode, setEditDefaultsMode] = useState(false)
-  
+
   const isDirty = Object.keys(pendingChanges).length > 0
+  const canSave = mqtt.status === 'connected' && mqtt.espStatus === 'connected' && espConfig !== null
 
   const handleConfigSync = useCallback((config) => {
     setEspConfig(config)
-    setPendingChanges(prev => {
-      // If we had pending changes when CFG_SYNC arrives, it means our save was acknowledged!
-      if (Object.keys(prev).length > 0) {
-        setShowToast(true)
-      }
-      return {} // Clear dirty state
-    })
+    if (awaitingAckRef.current) {
+      // CFG_SYNC after our save — the ESP32 has stored the config
+      awaitingAckRef.current = false
+      pendingRef.current = {}
+      setPendingChanges({})
+      setViewConfig(config)
+      setShowToast(true)
+    } else {
+      // Background sync (reconnect, another device) — keep unsaved edits
+      setViewConfig({ ...config, ...pendingRef.current })
+    }
   }, [])
 
   const handleLocalChange = useCallback((changes) => {
-    setPendingChanges(prev => ({ ...prev, ...changes }))
+    pendingRef.current = { ...pendingRef.current, ...changes }
+    setPendingChanges(pendingRef.current)
   }, [])
 
   function handleSave() {
-    if (!espConfig) return
+    if (!canSave) return
     const finalConfig = { ...espConfig, ...pendingChanges }
-    publishFullConfig(mqtt.publish, finalConfig)
-    setEditDefaultsMode(false)
-    // We don't clear pendingChanges here immediately; 
-    // it will clear when ESP32 replies with CFG_SYNC in handleConfigSync
+    if (publishFullConfig(mqtt.publish, finalConfig)) {
+      awaitingAckRef.current = true
+      setEditDefaultsMode(false)
+    }
+    // pendingChanges clear when ESP32 replies with CFG_SYNC in handleConfigSync
   }
 
   return (
@@ -62,24 +74,25 @@ function App() {
         <div id="esp-status-badge" title={`ESP32: ${mqtt.espStatus}`}>
           <EspStatusGear status={mqtt.espStatus} />
         </div>
-        
-        <MotorControl 
-          onConfigSync={handleConfigSync} 
+
+        <MotorControl
+          config={viewConfig}
+          onConfigSync={handleConfigSync}
           onChange={handleLocalChange}
           editDefaultsMode={editDefaultsMode}
         />
-        <TapControl 
-          initialConfig={espConfig} 
+        <TapControl
+          initialConfig={viewConfig}
           onChange={handleLocalChange}
           editDefaultsMode={editDefaultsMode}
           setEditDefaultsMode={setEditDefaultsMode}
         />
-        
-        <SaveButton isDirty={isDirty} onSave={handleSave} />
-        
-        <SuccessToast 
-          show={showToast} 
-          onClose={() => setShowToast(false)} 
+
+        <SaveButton isDirty={isDirty} canSave={canSave} onSave={handleSave} />
+
+        <SuccessToast
+          show={showToast}
+          onClose={() => setShowToast(false)}
           message="Saved Successfully!"
           subText="Everything seems great"
         />
@@ -89,4 +102,3 @@ function App() {
 }
 
 export default App
-

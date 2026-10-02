@@ -7,6 +7,7 @@
  * Publish a full CFG: string to MQTT based on the provided config object.
  * @param {Function} publish  - MQTT publish function from useMqttContext
  * @param {Object}   config   - Full config object with all tap & schedule settings
+ * @returns {boolean} true if the message was published
  */
 export function publishFullConfig(publish, config = {}) {
   try {
@@ -53,8 +54,9 @@ export function publishFullConfig(publish, config = {}) {
 
     const finalPayload = `CFG:${tapParts}:${sch}:${h}:${m}`
     console.log('[MQTT V2] Publishing config:', finalPayload)
-    publish('home/servo/command', finalPayload)
+    return publish('home/servo/command', finalPayload)
   } catch (err) {
     console.error('[ConfigBuilder V2] Error publishing config:', err)
+    return false
   }
 }
